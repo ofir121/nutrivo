@@ -10,10 +10,10 @@ class MealPlanRequest(BaseModel):
 
 class ParsedQuery(BaseModel):
     days: int
-    diets: List[str] = [] # Changed from single diet_type
+    diets: List[str] = Field(default_factory=list)  # Changed from single diet_type
     calories: Optional[int] = None
-    exclude: List[str] = []
-    preferences: List[str] = [] # e.g. ["high-protein", "low-carb"]
+    exclude: List[str] = Field(default_factory=list)
+    preferences: List[str] = Field(default_factory=list)  # e.g. ["high-protein", "low-carb"]
     meals_per_day: int = 3
     clarified_intent: Optional[str] = None
 
@@ -31,8 +31,8 @@ class Recipe(BaseModel):
     ready_in_minutes: int
     servings: int
     image: Optional[str] = None
-    diets: List[str] = []
-    dish_types: List[str] = []
+    diets: List[str] = Field(default_factory=list)
+    dish_types: List[str] = Field(default_factory=list)
     ingredients: List[str]
     instructions: List[str] 
     nutrition: NutritionalInfo
@@ -65,6 +65,6 @@ class MealPlanResponse(BaseModel):
     duration_days: int
     generated_at: str
     clarified_intent: Optional[str] = None  # How the AI interpreted the query
-    preferences: List[str] = []  # Extracted preferences like "high-protein", "low-carb"
+    preferences: List[str] = Field(default_factory=list)  # Extracted preferences like "high-protein", "low-carb"
     meal_plan: List[DailyPlan]
     summary: MealPlanSummary
