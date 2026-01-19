@@ -1,0 +1,688 @@
+[
+  {
+    "id": 1,
+    "title": "Oatmeal with Berries",
+    "readyInMinutes": 10,
+    "servings": 1,
+    "cuisines": [
+      "American"
+    ],
+    "diets": [
+      "vegetarian",
+      "vegan",
+      "gluten free",
+      "dairy free"
+    ],
+    "dishTypes": [
+      "breakfast"
+    ],
+    "extendedIngredients": [
+      {
+        "original": "1 cup oats"
+      },
+      {
+        "original": "1/2 cup almond milk"
+      },
+      {
+        "original": "1/4 cup blueberries"
+      }
+    ],
+    "nutrition": {
+      "nutrients": [
+        {
+          "name": "Calories",
+          "amount": 300,
+          "unit": "kcal"
+        },
+        {
+          "name": "Protein",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "name": "Carbohydrates",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "name": "Fat",
+          "amount": 6,
+          "unit": "g"
+        }
+      ]
+    },
+    "analyzedInstructions": [
+      {
+        "name": "",
+        "steps": [
+          {
+            "number": 1,
+            "step": "Cook oats with milk."
+          },
+          {
+            "number": 2,
+            "step": "Top with berries."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "title": "Grilled Chicken Salad",
+    "readyInMinutes": 20,
+    "servings": 2,
+    "cuisines": [
+      "American"
+    ],
+    "diets": [
+      "gluten free",
+      "dairy free",
+      "paleo",
+      "ketogenic",
+      "whole 30"
+    ],
+    "dishTypes": [
+      "lunch",
+      "salad"
+    ],
+    "extendedIngredients": [
+      {
+        "original": "1 chicken breast"
+      },
+      {
+        "original": "2 cups lettuce"
+      },
+      {
+        "original": "1 tomato, sliced"
+      },
+      {
+        "original": "1/2 cucumber, sliced"
+      },
+      {
+        "original": "1 tbsp olive oil"
+      }
+    ],
+    "nutrition": {
+      "nutrients": [
+        {
+          "name": "Calories",
+          "amount": 450,
+          "unit": "kcal"
+        },
+        {
+          "name": "Protein",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "name": "Carbohydrates",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "name": "Fat",
+          "amount": 20,
+          "unit": "g"
+        }
+      ]
+    },
+    "analyzedInstructions": [
+      {
+        "name": "",
+        "steps": [
+          {
+            "number": 1,
+            "step": "Grill chicken breast until cooked through."
+          },
+          {
+            "number": 2,
+            "step": "Toss lettuce, tomato, and cucumber in a bowl."
+          },
+          {
+            "number": 3,
+            "step": "Slice chicken and place on top."
+          },
+          {
+            "number": 4,
+            "step": "Drizzle with olive oil."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "title": "Vegetable Stir-Fry",
+    "readyInMinutes": 25,
+    "servings": 2,
+    "cuisines": [
+      "Asian"
+    ],
+    "diets": [
+      "vegetarian",
+      "vegan",
+      "gluten free",
+      "dairy free"
+    ],
+    "dishTypes": [
+      "dinner",
+      "main course"
+    ],
+    "extendedIngredients": [
+      {
+        "original": "1 cup broccoli florets"
+      },
+      {
+        "original": "1 carrot, sliced"
+      },
+      {
+        "original": "1 block tofu, cubed"
+      },
+      {
+        "original": "2 tbsp gluten-free soy sauce"
+      },
+      {
+        "original": "1 tsp ginger, minced"
+      },
+      {
+        "original": "1 clove garlic, minced"
+      }
+    ],
+    "nutrition": {
+      "nutrients": [
+        {
+          "name": "Calories",
+          "amount": 400,
+          "unit": "kcal"
+        },
+        {
+          "name": "Protein",
+          "amount": 15,
+          "unit": "g"
+        },
+        {
+          "name": "Carbohydrates",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "name": "Fat",
+          "amount": 15,
+          "unit": "g"
+        }
+      ]
+    },
+    "analyzedInstructions": [
+      {
+        "name": "",
+        "steps": [
+          {
+            "number": 1,
+            "step": "Heat oil in a wok."
+          },
+          {
+            "number": 2,
+            "step": "Stir fry tofu until golden."
+          },
+          {
+            "number": 3,
+            "step": "Add vegetables, ginger, and garlic. Cook for 5 mins."
+          },
+          {
+            "number": 4,
+            "step": "Add soy sauce and toss to coat."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "title": "Avocado Toast",
+    "readyInMinutes": 5,
+    "servings": 1,
+    "cuisines": [
+      "American"
+    ],
+    "diets": [
+      "vegetarian",
+      "vegan",
+      "dairy free"
+    ],
+    "dishTypes": [
+      "breakfast"
+    ],
+    "extendedIngredients": [
+      {
+        "original": "2 slices bread"
+      },
+      {
+        "original": "1 avocado, mashed"
+      },
+      {
+        "original": "Pinch of red pepper flakes"
+      },
+      {
+        "original": "Salt to taste"
+      }
+    ],
+    "nutrition": {
+      "nutrients": [
+        {
+          "name": "Calories",
+          "amount": 350,
+          "unit": "kcal"
+        },
+        {
+          "name": "Protein",
+          "amount": 8,
+          "unit": "g"
+        },
+        {
+          "name": "Carbohydrates",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "name": "Fat",
+          "amount": 22,
+          "unit": "g"
+        }
+      ]
+    },
+    "analyzedInstructions": [
+      {
+        "name": "",
+        "steps": [
+          {
+            "number": 1,
+            "step": "Toast bread slices."
+          },
+          {
+            "number": 2,
+            "step": "Spread mashed avocado on top."
+          },
+          {
+            "number": 3,
+            "step": "Season with salt and pepper flakes."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "title": "Salmon with Asparagus",
+    "readyInMinutes": 25,
+    "servings": 2,
+    "cuisines": [
+      "Mediterranean"
+    ],
+    "diets": [
+      "gluten free",
+      "pescatarian",
+      "ketogenic",
+      "low carb",
+      "paleo",
+      "dairy free"
+    ],
+    "dishTypes": [
+      "dinner"
+    ],
+    "extendedIngredients": [
+      {
+        "original": "2 4oz salmon fillets"
+      },
+      {
+        "original": "1 bunch asparagus"
+      },
+      {
+        "original": "1 lemon"
+      },
+      {
+        "original": "2 tbsp olive oil"
+      }
+    ],
+    "nutrition": {
+      "nutrients": [
+        {
+          "name": "Calories",
+          "amount": 500,
+          "unit": "kcal"
+        },
+        {
+          "name": "Protein",
+          "amount": 35,
+          "unit": "g"
+        },
+        {
+          "name": "Carbohydrates",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "name": "Fat",
+          "amount": 30,
+          "unit": "g"
+        }
+      ]
+    },
+    "analyzedInstructions": [
+      {
+        "name": "",
+        "steps": [
+          {
+            "number": 1,
+            "step": "Preheat oven to 400\u00b0F."
+          },
+          {
+            "number": 2,
+            "step": "Place salmon and asparagus on a baking sheet."
+          },
+          {
+            "number": 3,
+            "step": "Drizzle with oil and lemon juice."
+          },
+          {
+            "number": 4,
+            "step": "Bake for 15 minutes."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "title": "Greek Yogurt Parfait",
+    "readyInMinutes": 5,
+    "servings": 1,
+    "cuisines": [
+      "Mediterranean"
+    ],
+    "diets": [
+      "vegetarian",
+      "gluten free"
+    ],
+    "dishTypes": [
+      "breakfast",
+      "snack"
+    ],
+    "extendedIngredients": [
+      {
+        "original": "1 cup Greek yogurt"
+      },
+      {
+        "original": "1 tbsp honey"
+      },
+      {
+        "original": "1/4 cup walnuts"
+      },
+      {
+        "original": "1/2 cup strawberries"
+      }
+    ],
+    "nutrition": {
+      "nutrients": [
+        {
+          "name": "Calories",
+          "amount": 280,
+          "unit": "kcal"
+        },
+        {
+          "name": "Protein",
+          "amount": 22,
+          "unit": "g"
+        },
+        {
+          "name": "Carbohydrates",
+          "amount": 25,
+          "unit": "g"
+        },
+        {
+          "name": "Fat",
+          "amount": 10,
+          "unit": "g"
+        }
+      ]
+    },
+    "analyzedInstructions": [
+      {
+        "name": "",
+        "steps": [
+          {
+            "number": 1,
+            "step": "Add yogurt to a bowl."
+          },
+          {
+            "number": 2,
+            "step": "Top with honey, nuts, and berries."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "title": "Shrimp Tacos (Lettuce Wraps)",
+    "readyInMinutes": 20,
+    "servings": 2,
+    "cuisines": [
+      "Mexican"
+    ],
+    "diets": [
+      "gluten free",
+      "pescatarian",
+      "paleo",
+      "ketogenic",
+      "dairy free"
+    ],
+    "dishTypes": [
+      "dinner"
+    ],
+    "extendedIngredients": [
+      {
+        "original": "1/2 lb shrimp, peeled"
+      },
+      {
+        "original": "1 head butter lettuce"
+      },
+      {
+        "original": "1 lime"
+      },
+      {
+        "original": "1/4 cup cilantro"
+      },
+      {
+        "original": "1 avocado"
+      }
+    ],
+    "nutrition": {
+      "nutrients": [
+        {
+          "name": "Calories",
+          "amount": 350,
+          "unit": "kcal"
+        },
+        {
+          "name": "Protein",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "name": "Carbohydrates",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "name": "Fat",
+          "amount": 20,
+          "unit": "g"
+        }
+      ]
+    },
+    "analyzedInstructions": [
+      {
+        "name": "",
+        "steps": [
+          {
+            "number": 1,
+            "step": "Saut\u00e9 shrimp in a pan until pink."
+          },
+          {
+            "number": 2,
+            "step": "Serve in lettuce leaves with avocado and lime."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 8,
+    "title": "Lentil Soup",
+    "readyInMinutes": 35,
+    "servings": 4,
+    "cuisines": [
+      "Mediterranean"
+    ],
+    "diets": [
+      "vegetarian",
+      "vegan",
+      "gluten free",
+      "dairy free"
+    ],
+    "dishTypes": [
+      "lunch",
+      "soup"
+    ],
+    "extendedIngredients": [
+      {
+        "original": "1 cup dry lentils"
+      },
+      {
+        "original": "1 onion, chopped"
+      },
+      {
+        "original": "1 carrot, chopped"
+      },
+      {
+        "original": "4 cups vegetable broth"
+      }
+    ],
+    "nutrition": {
+      "nutrients": [
+        {
+          "name": "Calories",
+          "amount": 350,
+          "unit": "kcal"
+        },
+        {
+          "name": "Protein",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "name": "Carbohydrates",
+          "amount": 60,
+          "unit": "g"
+        },
+        {
+          "name": "Fat",
+          "amount": 5,
+          "unit": "g"
+        }
+      ]
+    },
+    "analyzedInstructions": [
+      {
+        "name": "",
+        "steps": [
+          {
+            "number": 1,
+            "step": "Saut\u00e9 onion and carrot."
+          },
+          {
+            "number": 2,
+            "step": "Add lentils and broth."
+          },
+          {
+            "number": 3,
+            "step": "Simmer for 30 minutes until tender."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 9,
+    "title": "Quinoa Salad Bowl",
+    "readyInMinutes": 15,
+    "servings": 2,
+    "cuisines": [
+      "Mediterranean"
+    ],
+    "diets": [
+      "vegetarian",
+      "vegan",
+      "gluten free",
+      "dairy free"
+    ],
+    "dishTypes": [
+      "lunch",
+      "salad"
+    ],
+    "extendedIngredients": [
+      {
+        "original": "1 cup cooked quinoa"
+      },
+      {
+        "original": "1 can chickpeas"
+      },
+      {
+        "original": "1 cucumber, diced"
+      },
+      {
+        "original": "Lemon vinaigrette"
+      }
+    ],
+    "nutrition": {
+      "nutrients": [
+        {
+          "name": "Calories",
+          "amount": 420,
+          "unit": "kcal"
+        },
+        {
+          "name": "Protein",
+          "amount": 14,
+          "unit": "g"
+        },
+        {
+          "name": "Carbohydrates",
+          "amount": 65,
+          "unit": "g"
+        },
+        {
+          "name": "Fat",
+          "amount": 12,
+          "unit": "g"
+        }
+      ]
+    },
+    "analyzedInstructions": [
+      {
+        "name": "",
+        "steps": [
+          {
+            "number": 1,
+            "step": "Combine all ingredients in a bowl."
+          },
+          {
+            "number": 2,
+            "step": "Toss with dressing."
+          }
+        ]
+      }
+    ]
+  }
+]
