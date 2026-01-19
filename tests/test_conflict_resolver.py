@@ -49,3 +49,30 @@ class TestConflictResolver:
             
         assert exc_info.value.status_code == 409
         assert "CONFLICTING_DIETS" in exc_info.value.detail["error_code"]
+
+    def test_validate_duration_limit_exceeded(self, conflict_resolver):
+        """Test that requesting > 7 days raises 400 Bad Request."""
+        parsed = ParsedQuery(
+            days=8,
+            diets=["vegan"],
+            calories=2000,
+            exclude=[],
+            meals_per_day=3
+        )
+        
+        with pytest.raises(HTTPException) as exc_info:
+            conflict_resolver.validate(parsed)
+            
+        assert exc_info.value.status_code == 400
+        assert "DURATION_LIMIT_EXCEEDED" in exc_info.value.detail["error_code"]
+
+    def test_validate_duration_limit_boundary(self, conflict_resolver):
+        """Test that requesting 7 days is valid."""
+        parsed = ParsedQuery(
+            days=7,
+            diets=["vegan"],
+            calories=2000,
+            exclude=[],
+            meals_per_day=3
+        )
+        conflict_resolver.validate(parsed)
