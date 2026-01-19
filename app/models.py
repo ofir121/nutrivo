@@ -56,7 +56,9 @@ class DailyPlan(BaseModel):
 
 class MealPlanSummary(BaseModel):
     total_meals: int
-    dietary_compliance: List[str]
+    diets: List[str] = Field(default_factory=list)  # e.g., ["vegetarian", "vegan"]
+    exclusions: List[str] = Field(default_factory=list)  # e.g., ["peanuts", "shellfish"]
+    preferences: List[str] = Field(default_factory=list)  # e.g., ["high-protein", "low-carb"]
     estimated_cost: str
     avg_prep_time: str
 

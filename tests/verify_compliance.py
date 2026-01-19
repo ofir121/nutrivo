@@ -69,9 +69,9 @@ class TestCompliance(unittest.TestCase):
                     req = MealPlanRequest(query="dummy")
                     response = planner.generate_meal_plan(req)
                     
-                    logger.debug(f"Compliance: {response.summary.dietary_compliance}")
-                    self.assertIn("high-protein", response.summary.dietary_compliance)
-                    self.assertIn("vegetarian", response.summary.dietary_compliance)
+                    logger.debug(f"Diets: {response.summary.diets}, Preferences: {response.summary.preferences}")
+                    self.assertIn("high-protein", response.summary.preferences)
+                    self.assertIn("vegetarian", response.summary.diets)
 
 if __name__ == '__main__':
     unittest.main()

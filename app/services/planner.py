@@ -146,13 +146,12 @@ class MealPlanner:
         if total_meals_count > 0:
             avg_prep = f"{total_prep_time_mins // total_meals_count} mins"
         
-        # Summary Compliance
-        compliance = list(set(parsed.diets + parsed.exclude + parsed.preferences))
-        
         summary = MealPlanSummary(
             total_meals=total_meals_count,
-            dietary_compliance=compliance,
-            estimated_cost="$45-60", # Mocked for now
+            diets=parsed.diets,
+            exclusions=parsed.exclude,
+            preferences=parsed.preferences,
+            estimated_cost="$45-60",  # Mocked for now
             avg_prep_time=avg_prep
         )
 

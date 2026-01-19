@@ -71,8 +71,25 @@ if st.button("Generate Plan", type="primary"):
                     with col3:
                         st.metric("Avg Prep Time", data["summary"]["avg_prep_time"])
                     
-                    if data["summary"]["dietary_compliance"]:
-                        st.info(f"**Compliance:** {', '.join(data['summary']['dietary_compliance'])}")
+                    # Display Diets
+                    if data["summary"].get("diets"):
+                        diets_html = " ".join([
+                            f'<span style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); '
+                            f'color: white; padding: 4px 12px; border-radius: 20px; margin-right: 8px; '
+                            f'font-size: 0.9em; font-weight: 500;">{diet}</span>'
+                            for diet in data["summary"]["diets"]
+                        ])
+                        st.markdown(f"**🥗 Diets:** {diets_html}", unsafe_allow_html=True)
+                    
+                    # Display Exclusions
+                    if data["summary"].get("exclusions"):
+                        excl_html = " ".join([
+                            f'<span style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); '
+                            f'color: white; padding: 4px 12px; border-radius: 20px; margin-right: 8px; '
+                            f'font-size: 0.9em; font-weight: 500;">No {excl}</span>'
+                            for excl in data["summary"]["exclusions"]
+                        ])
+                        st.markdown(f"**🚫 Exclusions:** {excl_html}", unsafe_allow_html=True)
 
                     # Detailed Plan
                     st.divider()
