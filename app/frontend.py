@@ -69,7 +69,8 @@ if st.button("Generate Plan", type="primary"):
                                         st.markdown(f"- {ing}")
                                 with c2:
                                     st.markdown("**Instructions**")
-                                    st.write(meal['instructions'])
+                                    for i, step in enumerate(meal['instructions'], 1):
+                                        st.markdown(f"{i}. {step}")
                                 st.divider()
 
                     # Raw JSON (for debugging/verification)

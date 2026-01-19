@@ -9,6 +9,8 @@ class RecipeService:
         
         # Initialize sources
         self.sources.append(LocalSource())
+        from app.services.sources.mealdb import MealDBSource
+        self.sources.append(MealDBSource())
 
     def get_recipes(self, diets: List[str] = [], exclude: List[str] = [], meal_type: Optional[str] = None) -> List[Recipe]:
         """

@@ -8,10 +8,10 @@ The goal is to simplify meal planning by converting natural language requests (e
 ## Architecture Overview
 - **Framework**: FastAPI (Python) for high-performance async API capabilities.
 - **Service Layer**:
-  - `LLMService`: Handles intent extraction from natural language (Note: Currently uses a regex-based POC parser for "days", "calories", and "diet type").
-  - `RecipeService`: Manages recipe data retrieval (Currently uses a mockup JSON database).
-  - `MealPlanner`: Orchestrates the logic to assemble daily plans ensuring dietary compliance.
-- **Data**: Mock recipe database for the POC.
+  - `LLMService`: Uses GPT-4o-mini for robust intent extraction and recipe instruction formatting.
+  - `RecipeService`: Aggregates recipes from TheMealDB API and a local mock database.
+  - `MealPlanner`: Orchestrates the logic to assemble daily plans, ensuring dietary compliance and variety.
+- **Data**: Hybrid approach using external API (MealDB) and local JSON.
 
 ## Setup & Installation
 
@@ -34,7 +34,7 @@ The goal is to simplify meal planning by converting natural language requests (e
 3. Configure Environment:
    ```bash
    cp .env.example .env
-   # Edit .env and add API keys if implementing full LLM integration
+   # Edit .env and add your OPENAI_API_KEY
    ```
 
 ## Running the Application
@@ -70,8 +70,8 @@ Interactive documentation (Swagger UI) is available at:
 
 ## Design Decisions & Trade-offs
 - **FastAPI**: Chosen for speed and built-in validation (Pydantic).
-- **Mock Data**: Used for the POC to ensure speed and reliability without external dependencies.
-- **Regex Parser**: Implemented a simple parser for the POC to demonstrate functionality without incurring LLM costs immediately. It extracts duration (1-7 days), diet type (vegetarian, vegan, etc.), and exclusions.
+- **Hybrid Recipe Sourcing**: Combines a local mock database for speed/reliability with TheMealDB for variety.
+- **Hybrid Parsing**: Uses a lightweight regex parser for speed, enriched by an LLM (GPT-4o-mini) for deep understanding of complex intents and instruction formatting.
 
 ## Future Improvements
 - **LLM Integration**: Replace regex logic with OpenAI/Anthropic for robust intent understanding.

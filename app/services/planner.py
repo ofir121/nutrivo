@@ -3,6 +3,11 @@ import uuid
 from datetime import datetime, timedelta
 from app.models import MealPlanRequest, MealPlanResponse, DailyPlan, MealPlanSummary, Meal, NutritionalInfo
 from app.services.parser_service import parser_service
+# Helper to access ai_service instance if needed, or import directly if preferred
+try:
+    from app.services.ai_service import ai_service as active_ai
+except ImportError:
+    active_ai = None
 from app.services.recipe_service import recipe_service
 from app.services.conflict_resolver import conflict_resolver
 
@@ -59,7 +64,7 @@ class MealPlanner:
                          ingredients=recipe.ingredients,
                          nutritional_info=recipe.nutrition,
                          preparation_time=f"{recipe.ready_in_minutes} mins",
-                         instructions="\n".join(recipe.instructions),
+                         instructions=active_ai.format_instructions(recipe.instructions) if active_ai else recipe.instructions,
                          source=f"{recipe.source_api}"
                      ))
                      

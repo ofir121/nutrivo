@@ -43,7 +43,7 @@ class Meal(BaseModel):
     ingredients: List[str]
     nutritional_info: NutritionalInfo
     preparation_time: str
-    instructions: str
+    instructions: List[str]
     source: str
 
 class DailyPlan(BaseModel):

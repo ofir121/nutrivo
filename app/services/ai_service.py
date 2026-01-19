@@ -90,4 +90,45 @@ Now extract from: "{query}"
             print(f"LLM enhancement failed: {e}")
             return None
 
+    def format_instructions(self, raw_instructions: list[str]) -> list[str]:
+        """
+        Use LLM to format recipe instructions into a clean, numbered list.
+        """
+        if not self.client:
+            return raw_instructions
+
+        if not raw_instructions:
+            return []
+            
+        # Join into a single block to contextually understand the flow
+        text_block = "\n".join(raw_instructions)
+        
+        prompt = f"""
+        Reformat the following recipe instructions into a clean, step-by-step list of strings.
+        Remove any existing "Step 1", "Step 2" labels or numbering from the text itself, as the UI will handle numbering.
+        Split complex paragraphs into logical individual steps.
+        Return ONLY a JSON object with a single key "steps" containing the list of strings.
+
+        Input Instructions:
+        {text_block}
+        """
+
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a helpful culinary assistant. Output valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.1,
+                response_format={"type": "json_object"}
+            )
+            
+            result = json.loads(response.choices[0].message.content)
+            return result.get("steps", raw_instructions)
+            
+        except Exception as e:
+            print(f"Instruction formatting failed: {e}")
+            return raw_instructions
+
 ai_service = AIService()
