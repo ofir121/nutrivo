@@ -111,7 +111,10 @@ if st.button("Generate Plan", type="primary"):
                                         st.markdown(f"{i}. {step}")
                                 st.divider()
 
-
+                    # Collapsible JSON Response Viewer
+                    st.divider()
+                    with st.expander("📋 Raw JSON Response", expanded=False):
+                        st.json(data)
                         
                 else:
                     st.error(f"Error {response.status_code}: {response.text}")
