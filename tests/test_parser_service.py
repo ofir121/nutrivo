@@ -10,7 +10,7 @@ class TestParserService:
         """Test extraction of specific day counts."""
         assert parser_service._extract_duration("3 days") == 3
         assert parser_service._extract_duration("1 day") == 1
-        assert parser_service._extract_duration("10 days") == 7  # Clamped to 7
+        assert parser_service._extract_duration("10 days") == 10  # Clamped to 7 -> No longer clamped
         assert parser_service._extract_duration("0 days") == 1   # Clamped to 1
 
     def test_extract_duration_weeks(self, parser_service):

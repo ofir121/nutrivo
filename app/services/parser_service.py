@@ -94,7 +94,7 @@ class QueryParser:
         match = re.search(r'(\d+)\s*-?\s*day', text)
         if match:
             val = int(match.group(1))
-            return min(max(val, 1), 7) # Clamp 1-7
+            return max(val, 1) # Clamp min 1
         return 3 # Default
 
     def _extract_diets(self, text: str) -> List[str]:

@@ -10,7 +10,18 @@ class ConflictResolver:
         Raises HTTPException(409) if a conflict is found.
         """
         
-        # 1. Check Diet Conflicts
+        # 1. Check Duration Limit
+        if parsed.days > 7:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error_code": "DURATION_LIMIT_EXCEEDED",
+                    "message": f"You requested a plan for {parsed.days} days, but the maximum is 7 days.",
+                    "suggestion": "Please request a meal plan for 7 days or fewer."
+                }
+            )
+
+        # 2. Check Diet Conflicts
         # Checks if the user requested any pair of diets that are known to be incompatible.
         detected = set(parsed.diets)
         

@@ -39,7 +39,7 @@ Analyze the query and return a JSON object with the following structure:
 {{
   "original_prompt": "The exact original query text",
   "clarified_intent": "A clear, expanded version explaining what the user wants",
-  "duration_days": <number 1-7, or null if not specified>,
+  "duration_days": <number, or null if not specified>,
   "diets": ["dietary restrictions like vegetarian, vegan, etc. Empty array [] if none"],
   "preferences": ["preferences like high-protein, low-carb, etc. Empty array [] if none"],
   "exclusions": ["ingredients to avoid like dairy, nuts, etc. Empty array [] if none"],
