@@ -85,7 +85,7 @@ class LocalSource(RecipeSource):
                     from app.services.ai_service import ai_service
                     time_estimates = ai_service.batch_estimate_preparation_time(recipes_needing_time)
                     batch_time = time.time() - batch_start
-                    print(f"    ⏱️  Batch time estimation for {len(recipes_needing_time)} recipes: {batch_time:.2f}s")
+
                 except Exception as e:
                     print(f"Batch estimation failed: {e}")
                     time_estimates = {rid: 30 for rid in recipes_needing_time.keys()}

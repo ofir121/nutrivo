@@ -52,7 +52,7 @@ class MealPlanner:
                      estimate_prep_time=False, 
                      sources=request.sources
                  )
-                 print(f"DEBUG: For {m_type}, got {len(candidates)} candidates.")
+
                  
                  # Score/Filter for Soft Constraints & Diversity
                  available_candidates = [r for r in candidates if r.id not in used_recipes]

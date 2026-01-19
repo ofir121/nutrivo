@@ -83,9 +83,7 @@ if st.button("Generate Plan", type="primary"):
                                         st.markdown(f"{i}. {step}")
                                 st.divider()
 
-                    # Raw JSON (for debugging/verification)
-                    with st.expander("View Raw JSON Response"):
-                        st.json(data)
+
                         
                 else:
                     st.error(f"Error {response.status_code}: {response.text}")

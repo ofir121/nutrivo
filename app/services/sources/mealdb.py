@@ -36,7 +36,7 @@ class MealDBSource(RecipeSource):
                 res = requests.get(url)
                 data = res.json()
                 api_time = time.time() - api_start
-                print(f"      🌐 MealDB API (filter {cat}): {api_time:.2f}s")
+
                 return data.get("meals") or []
             except Exception:
                 return []
@@ -57,8 +57,7 @@ class MealDBSource(RecipeSource):
                         detailed.extend(d["meals"])
                 except Exception:
                     pass
-            if total_detail_time > 0:
-                print(f"      🌐 MealDB API ({len(detailed)} detail lookups): {total_detail_time:.2f}s")
+
             return detailed
             
         # Helper for search
@@ -69,7 +68,7 @@ class MealDBSource(RecipeSource):
                 res = requests.get(url)
                 data = res.json()
                 api_time = time.time() - api_start
-                print(f"      🌐 MealDB API (search '{query}'): {api_time:.2f}s")
+
                 return data.get("meals") or []
              except Exception:
                 return []
@@ -158,7 +157,7 @@ class MealDBSource(RecipeSource):
                     from app.services.ai_service import ai_service
                     time_estimates = ai_service.batch_estimate_preparation_time(recipes_needing_time)
                     batch_time = time.time() - batch_start
-                    print(f"    ⏱️  Batch time estimation for {len(recipes_needing_time)} recipes: {batch_time:.2f}s")
+
                 except Exception as e:
                     print(f"Batch estimation failed: {e}")
                     time_estimates = {rid: 30 for rid in recipes_needing_time.keys()}
