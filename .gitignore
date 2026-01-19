@@ -1,4 +1,4 @@
 .env
-requirements.md
 **/*.pyc
 **/*.pyo
+requirments.md
