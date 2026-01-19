@@ -13,6 +13,7 @@ class ParsedQuery(BaseModel):
     diets: List[str] = [] # Changed from single diet_type
     calories: Optional[int] = None
     exclude: List[str] = []
+    preferences: List[str] = [] # e.g. ["high-protein", "low-carb"]
     meals_per_day: int = 3
     clarified_intent: Optional[str] = None
 
@@ -64,5 +65,6 @@ class MealPlanResponse(BaseModel):
     duration_days: int
     generated_at: str
     clarified_intent: Optional[str] = None  # How the AI interpreted the query
+    preferences: List[str] = []  # Extracted preferences like "high-protein", "low-carb"
     meal_plan: List[DailyPlan]
     summary: MealPlanSummary

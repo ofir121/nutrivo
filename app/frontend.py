@@ -52,6 +52,17 @@ if st.button("Generate Plan", type="primary"):
                     if data.get("clarified_intent"):
                         st.info(f"🤖 **AI Interpretation:** {data['clarified_intent']}")
                     
+                    # Display Preferences
+                    if data.get("preferences"):
+                        prefs_html = " ".join([
+                            f'<span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); '
+                            f'color: white; padding: 4px 12px; border-radius: 20px; margin-right: 8px; '
+                            f'font-size: 0.9em; font-weight: 500;">{pref}</span>'
+                            for pref in data["preferences"]
+                        ])
+                        st.markdown(f"**✨ Preferences:** {prefs_html}", unsafe_allow_html=True)
+                        st.markdown("")  # Add spacing
+                    
                     col1, col2, col3 = st.columns(3)
                     with col1:
                         st.metric("Total Meals", data["summary"]["total_meals"])

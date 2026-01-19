@@ -57,6 +57,18 @@ class MealPlanner:
                  # Score/Filter for Soft Constraints & Diversity
                  available_candidates = [r for r in candidates if r.id not in used_recipes]
                  
+                 # Filter by Preferences (e.g. high-protein)
+                 # Normalize preferences
+                 if parsed.preferences:
+                     prefs = [p.lower().replace("-", " ") for p in parsed.preferences]
+                     if "high protein" in prefs:
+                         # Sort by protein descending and take top 50% or top 3
+                         # Ensure we have candidates with protein info
+                         available_candidates.sort(key=lambda r: r.nutrition.protein, reverse=True)
+                         # Take top 3 to ensure high protein, but maintain slight randomness
+                         if len(available_candidates) > 3:
+                             available_candidates = available_candidates[:3]
+                
                  # Fallback: if we ran out of unique recipes, reuse from candidates
                  if not available_candidates:
                      available_candidates = candidates
@@ -132,7 +144,7 @@ class MealPlanner:
             avg_prep = f"{total_prep_time_mins // total_meals_count} mins"
         
         # Summary Compliance
-        compliance = list(set(parsed.diets + parsed.exclude))
+        compliance = list(set(parsed.diets + parsed.exclude + parsed.preferences))
         
         summary = MealPlanSummary(
             total_meals=total_meals_count,
@@ -149,6 +161,7 @@ class MealPlanner:
             duration_days=parsed.days,
             generated_at=datetime.now().isoformat(),
             clarified_intent=parsed.clarified_intent,
+            preferences=parsed.preferences,
             meal_plan=meal_plan,
             summary=summary
         )

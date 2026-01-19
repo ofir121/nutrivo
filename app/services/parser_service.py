@@ -54,7 +54,10 @@ class QueryParser:
             if enhanced.get("meals_per_day"):
                 meals_per_day = enhanced.get("meals_per_day")
             
-
+        # Extract preferences from LLM response
+        preferences = []
+        if enhanced and enhanced.get("preferences"):
+            preferences = enhanced.get("preferences", [])
 
         
         # Extract clarified intent from LLM response
@@ -69,6 +72,7 @@ class QueryParser:
             diets=diets,
             calories=calories,
             exclude=exclude,
+            preferences=preferences,
             meals_per_day=meals_per_day,
             clarified_intent=clarified_intent
         )
