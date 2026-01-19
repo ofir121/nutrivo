@@ -39,23 +39,29 @@ The goal is to simplify meal planning by converting natural language requests (e
 
 ## Running the Application
 
-This application consists of two parts: the Backend API and the Frontend UI.
+### Quick Start (Recommended)
+Run both the backend and frontend simultaneously with a single command:
+```bash
+python run.py
+```
+This script will start the FastAPI backend (port 8000) and the Streamlit frontend (port 8501).
 
-### 1. Start the Backend
+### Manual Setup
+If you prefer to run services separately:
+
+#### 1. Start the Backend
 Start the FastAPI server:
 ```bash
 uvicorn app.main:app --reload
 ```
 The API will be available at `http://127.0.0.1:8000`.
 
-### 2. Start the Frontend
+#### 2. Start the Frontend
 In a new terminal window, start the Streamlit app:
 ```bash
 streamlit run app/frontend.py
 ```
 The UI will open in your browser at `http://localhost:8501`.
-
-
 ## API Documentation
 Interactive documentation (Swagger UI) is available at:
 `http://127.0.0.1:8000/docs`
@@ -74,7 +80,6 @@ Interactive documentation (Swagger UI) is available at:
 - **Hybrid Parsing**: Uses a lightweight regex parser for speed, enriched by an LLM (GPT-4o-mini) for deep understanding of complex intents and instruction formatting.
 
 ## Future Improvements
-- **LLM Integration**: Replace regex logic with OpenAI/Anthropic for robust intent understanding.
-- **Real Recipe API**: Integrate Spoonacular or Edamam for a vast recipe value.
+- **LLM Integration**: Further enhance LLM usage for more complex reasoning.
 - **Optimization**: Add constraint satisfaction algorithms (CSP) to better optimize nutrition and variety.
 - **User Profiles**: Store user preferences to improve personalization over time.
