@@ -1,12 +1,15 @@
 import requests
+import re
+import time
 from typing import List, Optional, Any, Dict
 from app.services.sources.base import RecipeSource
 from app.models import Recipe, NutritionalInfo
 
 class MealDBSource(RecipeSource):
+    name = "TheMealDB"
     BASE_URL = "https://www.themealdb.com/api/json/v1/1/"
 
-    def get_recipes(self, diets: List[str], exclude: List[str], meal_type: Optional[str]) -> List[Recipe]:
+    def get_recipes(self, diets: List[str], exclude: List[str], meal_type: Optional[str], estimate_prep_time: bool = False) -> List[Recipe]:
         """
         Fetch recipes from TheMealDB.
         Note: The free API has limited filtering capabilities.
@@ -28,34 +31,45 @@ class MealDBSource(RecipeSource):
         # Helper to fetch by category
         def fetch_by_category(cat: str):
             try:
+                api_start = time.time()
                 url = f"{self.BASE_URL}filter.php?c={cat}"
                 res = requests.get(url)
                 data = res.json()
+                api_time = time.time() - api_start
+                print(f"      🌐 MealDB API (filter {cat}): {api_time:.2f}s")
                 return data.get("meals") or []
             except Exception:
                 return []
 
-        # Helper to fetch details for a list of partial meal objects (idMeal)
         def fetch_details(meals_list: List[Dict]):
             detailed = []
-            for m in meals_list[:5]: # Limit to avoid pinging too much if list is huge
+            total_detail_time = 0
+            for m in meals_list[:3]: # Limit to 3 - enough for variety without excessive API calls
                 # lookup.php?i=52772
                 try:
+                    detail_start = time.time()
                     mid = m.get("idMeal")
                     res = requests.get(f"{self.BASE_URL}lookup.php?i={mid}")
                     d = res.json()
+                    detail_time = time.time() - detail_start
+                    total_detail_time += detail_time
                     if d.get("meals"):
                         detailed.extend(d["meals"])
                 except Exception:
                     pass
+            if total_detail_time > 0:
+                print(f"      🌐 MealDB API ({len(detailed)} detail lookups): {total_detail_time:.2f}s")
             return detailed
             
         # Helper for search
         def search_meals(query: str):
              try:
+                api_start = time.time()
                 url = f"{self.BASE_URL}search.php?s={query}"
                 res = requests.get(url)
                 data = res.json()
+                api_time = time.time() - api_start
+                print(f"      🌐 MealDB API (search '{query}'): {api_time:.2f}s")
                 return data.get("meals") or []
              except Exception:
                 return []
@@ -64,7 +78,9 @@ class MealDBSource(RecipeSource):
         # If specific meal type requested that maps to a category, stick to that.
         # Otherwise, search for common terms or diets.
         
+        
         fetched_meals = []
+        MAX_RECIPES_TO_FETCH = 10  # Sufficient variety for meal planning
         
         if meal_type:
             # Map simple types to categories
@@ -85,23 +101,30 @@ class MealDBSource(RecipeSource):
                  # Fallback search
                  fetched_meals.extend(search_meals(meal_type))
         
-        # If we have diet constraints like Vegan/Vegetarian, we can try to fetch from those categories too
-        # to ensure we have options, then filter.
-        for diet in diets:
-            d_lower = diet.lower()
-            if "vegan" in d_lower:
-                items = fetch_by_category("Vegan")
-                fetched_meals.extend(fetch_details(items))
-            elif "vegetarian" in d_lower:
-                items = fetch_by_category("Vegetarian")
-                fetched_meals.extend(fetch_details(items))
+        # Early termination if we have enough
+        if len(fetched_meals) >= MAX_RECIPES_TO_FETCH:
+            fetched_meals = fetched_meals[:MAX_RECIPES_TO_FETCH]
+        else:
+            # If we have diet constraints like Vegan/Vegetarian, we can try to fetch from those categories too
+            # to ensure we have options, then filter.
+            for diet in diets:
+                if len(fetched_meals) >= MAX_RECIPES_TO_FETCH:
+                    break
+                d_lower = diet.lower()
+                if "vegan" in d_lower:
+                    items = fetch_by_category("Vegan")
+                    fetched_meals.extend(fetch_details(items))
+                elif "vegetarian" in d_lower:
+                    items = fetch_by_category("Vegetarian")
+                    fetched_meals.extend(fetch_details(items))
 
-        # Final fallback: if nothing fetched yet (e.g. general query), search for generic terms
-        if not fetched_meals:
-             # Just fetch some randoms or a common letter to populate
-             # search.php?s=a returns a bunch
-             fetched_meals.extend(search_meals("a"))
-             fetched_meals.extend(search_meals("b")) # Add variety
+            # Final fallback: if nothing fetched yet (e.g. general query), search for generic terms
+            if not fetched_meals:
+                 # Just fetch some randoms or a common letter to populate
+                 # search.php?s=a returns a bunch
+                 fetched_meals.extend(search_meals("a"))
+                 if len(fetched_meals) < MAX_RECIPES_TO_FETCH:
+                     fetched_meals.extend(search_meals("b")) # Add variety
         
         # Deduplicate by idMeal
         seen_ids = set()
@@ -115,9 +138,39 @@ class MealDBSource(RecipeSource):
         final_recipes = []
         for m in unique_meals:
             if self._satisfies_constraints(m, diets, exclude):
-                final_recipes.append(self._adapt(m))
+                final_recipes.append(m)
+        
+        # BATCH TIME ESTIMATION (only if requested)
+        time_estimates = {}
+        if estimate_prep_time:
+            # Collect recipes that need time estimation
+            recipes_needing_time = {}
+            for m in final_recipes:
+                meal_id = f"mealdb_{m.get('idMeal')}"
+                instructions_text = m.get("strInstructions", "")
+                if instructions_text:
+                    recipes_needing_time[meal_id] = instructions_text
+            
+            # Get batch estimates
+            if recipes_needing_time:
+                try:
+                    batch_start = time.time()
+                    from app.services.ai_service import ai_service
+                    time_estimates = ai_service.batch_estimate_preparation_time(recipes_needing_time)
+                    batch_time = time.time() - batch_start
+                    print(f"    ⏱️  Batch time estimation for {len(recipes_needing_time)} recipes: {batch_time:.2f}s")
+                except Exception as e:
+                    print(f"Batch estimation failed: {e}")
+                    time_estimates = {rid: 30 for rid in recipes_needing_time.keys()}
+        
+        # Adapt with estimates (use default 30 if not estimated)
+        adapted_recipes = []
+        for m in final_recipes:
+            meal_id = f"mealdb_{m.get('idMeal')}"
+            estimated_time = time_estimates.get(meal_id, 30)
+            adapted_recipes.append(self._adapt(m, estimated_time))
                 
-        return final_recipes
+        return adapted_recipes
 
     def _satisfies_constraints(self, meal: Dict, diets: List[str], exclude: List[str]) -> bool:
         # Check Exclusions (Ingredients)
@@ -159,7 +212,8 @@ class MealDBSource(RecipeSource):
 
         return True
 
-    def _adapt(self, data: Dict) -> Recipe:
+
+    def _adapt(self, data: Dict, estimated_time: int = 30) -> Recipe:
         # Extract ingredients
         ingredients = []
         for i in range(1, 21):
@@ -179,7 +233,7 @@ class MealDBSource(RecipeSource):
         return Recipe(
             id=f"mealdb_{data.get('idMeal')}",
             title=data.get("strMeal"),
-            ready_in_minutes=30, # Placeholder, MealDB doesn't have this
+            ready_in_minutes=estimated_time,
             servings=2, # Placeholder
             image=data.get("strMealThumb"),
             diets=[], # Populated from tags if parsing needed, safe to leave empty or infer

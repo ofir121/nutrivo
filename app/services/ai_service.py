@@ -1,6 +1,6 @@
 import os
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -130,5 +130,232 @@ Now extract from: "{query}"
         except Exception as e:
             print(f"Instruction formatting failed: {e}")
             return raw_instructions
+
+    
+    def estimate_preparation_time(self, instructions: str) -> int:
+        """
+        Use LLM to estimate total preparation and cooking time from instructions.
+        Returns minutes (int).
+        """
+        if not self.client or not instructions:
+            return 30
+
+        try:
+            prompt = f"""
+            Analyze the following recipe instructions and estimate the TOTAL time required (prep + cook + wait).
+            Return ONLY a valid JSON object with a single key "total_minutes" (integer).
+            If no time is mentioned or it's impossible to estimate, return 30.
+
+            Instructions:
+            {instructions[:2000]} 
+            """
+            
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a helpful culinary assistant. Output valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.1,
+                response_format={"type": "json_object"}
+            )
+            
+            result = json.loads(response.choices[0].message.content)
+            return int(result.get("total_minutes", 30))
+            
+        except Exception as e:
+            print(f"Time estimation failed: {e}")
+            return 30
+
+    def batch_estimate_preparation_time(self, recipes: Dict[str, str]) -> Dict[str, int]:
+        """
+        Batch estimate preparation time for multiple recipes.
+        Args:
+            recipes: Dict mapping recipe_id -> instructions text
+        Returns:
+            Dict mapping recipe_id -> estimated total minutes
+        """
+        if not self.client or not recipes:
+            return {}
+
+        try:
+            # Construct a prompt with all recipes
+            items_str = ""
+            for rid, instructions in recipes.items():
+                items_str += f"\n--- Recipe ID: {rid} ---\n{instructions[:1000]}\n"
+
+            prompt = f"""
+            Analyze the instructions for the following recipes and estimate the TOTAL time required (Preparation + Cooking + Wait Time) for EACH.
+            
+            Return ONLY a valid JSON object where keys are the Recipe IDs and values are the total minutes (integer).
+            Example: {{"1": 45, "mealdb_52772": 30}}
+            If no time is mentioned, default to 30.
+
+            Recipes:
+            {items_str}
+            """
+
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a helpful culinary assistant. Output valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.1,
+                response_format={"type": "json_object"}
+            )
+            
+            result = json.loads(response.choices[0].message.content)
+            
+            # Ensure all requested IDs are in the result
+            final_estimates = {}
+            for rid in recipes.keys():
+                # Cast keys to string just in case LLM returns numbers or strings mixed
+                val = result.get(str(rid)) or result.get(rid)
+                final_estimates[rid] = int(val) if val else 30
+                
+            return final_estimates
+
+        except Exception as e:
+            print(f"Batch time estimation failed: {e}")
+            # Fallback for all
+            return {rid: 30 for rid in recipes}
+
+    def batch_format_instructions(self, recipes_instructions: Dict[str, List[str]]) -> Dict[str, List[str]]:
+        """
+        Batch format instructions for multiple recipes.
+        Args:
+            recipes_instructions: Dict mapping recipe_id -> list of raw instruction strings
+        Returns:
+            Dict mapping recipe_id -> formatted instruction steps
+        """
+        if not self.client or not recipes_instructions:
+            return recipes_instructions
+
+        try:
+            # Construct a prompt with all recipes
+            items_str = ""
+            for rid, instructions in recipes_instructions.items():
+                text_block = "\n".join(instructions) if instructions else ""
+                items_str += f"\n--- Recipe ID: {rid} ---\n{text_block[:800]}\n"
+
+            prompt = f"""
+            Reformat the instructions for the following recipes into clean, step-by-step lists.
+            Remove any existing "Step 1", "Step 2" labels or numbering from the text itself, as the UI will handle numbering.
+            Split complex paragraphs into logical individual steps.
+            
+            Return ONLY a valid JSON object where keys are Recipe IDs and values are arrays of instruction strings.
+            Example: {{"1": ["Heat oil", "Add vegetables"], "2": ["Mix ingredients", "Bake for 20 mins"]}}
+
+            Recipes:
+            {items_str}
+            """
+
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a helpful culinary assistant. Output valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.1,
+                response_format={"type": "json_object"}
+            )
+            
+            result = json.loads(response.choices[0].message.content)
+            
+            # Ensure all requested IDs are in the result
+            final_formatted = {}
+            for rid, original_instructions in recipes_instructions.items():
+                # Get formatted or fallback to original
+                formatted = result.get(str(rid)) or result.get(rid)
+                if formatted and isinstance(formatted, list):
+                    final_formatted[rid] = formatted
+                else:
+                    final_formatted[rid] = original_instructions
+                    
+            return final_formatted
+
+        except Exception as e:
+            print(f"Batch instruction formatting failed: {e}")
+            # Fallback to originals
+            return recipes_instructions
+
+    def batch_process_recipes(self, recipes: Dict[str, str], estimate_time: bool = False) -> Dict[str, Dict[str, Any]]:
+        """
+        Batch process recipes to format instructions and optionally estimate time in ONE LLM call.
+        
+        Args:
+            recipes: Dict mapping unique_id -> instructions text
+            estimate_time: Whether to also estimate preparation time
+            
+        Returns:
+            Dict mapping unique_id -> {
+                "instructions": List[str],  # Formatted steps
+                "total_minutes": int (optional)
+            }
+        """
+        if not self.client or not recipes:
+            return {}
+
+        try:
+            # Construct a prompt with all recipes
+            items_str = ""
+            for rid, instructions in recipes.items():
+                items_str += f"\n--- Recipe ID: {rid} ---\n{instructions[:1000]}\n"
+
+            task_desc = "1. Reformat instructions into clean list of strings."
+            response_structure = '"steps": ["Step 1", "Step 2"]'
+            
+            if estimate_time:
+                task_desc += "\n            2. Estimate TOTAL preparation + cooking time in minutes."
+                response_structure += ', "total_minutes": 45'
+            
+            prompt = f"""
+            Analyze the following recipes. For EACH recipe:
+            {task_desc}
+            
+            Return ONLY a valid JSON object where keys are the Recipe IDs and values are objects containing:
+            {{{response_structure}}}
+            
+            If time cannot be estimated, default to 30.
+            
+            Recipes:
+            {items_str}
+            """
+
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a helpful culinary assistant. Output valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.1,
+                response_format={"type": "json_object"}
+            )
+            
+            result = json.loads(response.choices[0].message.content)
+            
+            # Normalize result keys
+            final_results = {}
+            for rid in recipes.keys():
+                # Handle potential key mismatch (str vs int)
+                data = result.get(str(rid)) or result.get(rid)
+                
+                processed = {}
+                if data:
+                    processed["instructions"] = data.get("steps", [])
+                    if estimate_time:
+                        processed["total_minutes"] = int(data.get("total_minutes", 30))
+                else:
+                     # Fallback
+                     processed["instructions"] = [] # specialized fallback handled by caller? Or just return empty here
+                
+                final_results[rid] = processed
+                    
+            return final_results
+
+        except Exception as e:
+            print(f"Batch processing failed: {e}")
+            return {}
 
 ai_service = AIService()

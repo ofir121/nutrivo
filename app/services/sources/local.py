@@ -1,11 +1,14 @@
 import json
 import os
+import time
 from typing import List, Optional, Dict
 from app.services.sources.base import RecipeSource
 from app.models import Recipe, NutritionalInfo
 from app.core.rules import DIET_DEFINITIONS, INGREDIENT_SYNONYMS
 
 class LocalSource(RecipeSource):
+    name = "Local"
+    
     def __init__(self, file_path: str = "data/mock_recipes.json"):
         self.recipes = self._load_data(file_path)
 
@@ -20,7 +23,7 @@ class LocalSource(RecipeSource):
             print(f"Error decoding {file_path}")
             return []
 
-    def get_recipes(self, diets: List[str], exclude: List[str], meal_type: Optional[str]) -> List[Recipe]:
+    def get_recipes(self, diets: List[str], exclude: List[str], meal_type: Optional[str], estimate_prep_time: bool = False) -> List[Recipe]:
         """
         Filters the Spoonacular-formatted local data and adapts it to our canonical Recipe model.
         """
@@ -50,6 +53,7 @@ class LocalSource(RecipeSource):
                 if not self._contains_excluded(r, exclude)
             ]
 
+
         # 3. Filter by Meal Type
         if meal_type:
             filtered_data = [
@@ -57,8 +61,37 @@ class LocalSource(RecipeSource):
                 if self._matches_meal_type(r.get("dishTypes", []), meal_type)
             ]
 
-        # 4. Adapt to Canonical Model
-        return [self._adapt(r) for r in filtered_data]
+        # 4. Batch Time Estimation (only if requested)
+        time_estimates = {}
+        if estimate_prep_time:
+            # Collect recipes needing time estimation
+            recipes_needing_time = {}
+            for r in filtered_data:
+                recipe_id = str(r.get("id"))
+                if r.get("readyInMinutes", 0) <= 0:
+                    # Extract instructions
+                    steps = []
+                    if r.get("analyzedInstructions"):
+                        for section in r["analyzedInstructions"]:
+                            for step in section.get("steps", []):
+                                steps.append(step.get("step", ""))
+                    if steps:
+                        recipes_needing_time[recipe_id] = " ".join(steps)
+            
+            # Get batch estimates
+            if recipes_needing_time:
+                try:
+                    batch_start = time.time()
+                    from app.services.ai_service import ai_service
+                    time_estimates = ai_service.batch_estimate_preparation_time(recipes_needing_time)
+                    batch_time = time.time() - batch_start
+                    print(f"    ⏱️  Batch time estimation for {len(recipes_needing_time)} recipes: {batch_time:.2f}s")
+                except Exception as e:
+                    print(f"Batch estimation failed: {e}")
+                    time_estimates = {rid: 30 for rid in recipes_needing_time.keys()}
+
+        # 5. Adapt to Canonical Model with estimates
+        return [self._adapt(r, time_estimates) for r in filtered_data]
 
     def _matches_diet(self, recipe_diets: List[str], req_diet: str) -> bool:
         # Normalize both sides
@@ -93,7 +126,11 @@ class LocalSource(RecipeSource):
                      return True
         return False
 
-    def _adapt(self, data: dict) -> Recipe:
+
+    def _adapt(self, data: dict, time_estimates: Dict[str, int] = None) -> Recipe:
+        if time_estimates is None:
+            time_estimates = {}
+            
         # Extract nutrition
         nutrients = {n["name"]: n["amount"] for n in data.get("nutrition", {}).get("nutrients", [])}
         
@@ -105,10 +142,15 @@ class LocalSource(RecipeSource):
                 for step in section.get("steps", []):
                     steps.append(step.get("step", ""))
         
+        # Get time - use existing if valid, otherwise use estimate
+        recipe_id = str(data.get("id"))
+        existing_time = data.get("readyInMinutes", 0)
+        ready_time = existing_time if existing_time > 0 else time_estimates.get(recipe_id, 30)
+        
         return Recipe(
-            id=str(data.get("id")),
+            id=recipe_id,
             title=data.get("title"),
-            ready_in_minutes=data.get("readyInMinutes", 0),
+            ready_in_minutes=ready_time,
             servings=data.get("servings", 1),
             image=data.get("image"),
             diets=data.get("diets", []),
