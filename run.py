@@ -2,12 +2,21 @@ import subprocess
 import time
 import sys
 import os
+import logging
+
+# Setup basic logging for run.py
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)-8s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+logger = logging.getLogger(__name__)
 
 def run():
-    print("🚀 Starting Meal Planner Application...")
+    logger.info("🚀 Starting Meal Planner Application...")
     
     # 1. Start Backend
-    print("➡️  Starting Backend API (Uvicorn)...")
+    logger.info("➡️  Starting Backend API (Uvicorn)...")
     backend = subprocess.Popen(
         ["uvicorn", "app.main:app", "--reload", "--port", "8000"],
         stdout=subprocess.PIPE,
@@ -19,27 +28,27 @@ def run():
     time.sleep(2)
     
     # 2. Start Frontend
-    print("➡️  Starting Frontend UI (Streamlit)...")
+    logger.info("➡️  Starting Frontend UI (Streamlit)...")
     frontend = subprocess.Popen(
         ["streamlit", "run", "app/frontend.py", "--server.port", "8501"],
         stdout=sys.stdout,
         stderr=sys.stderr
     )
 
-    print("\n✅ Application works! Access it here:")
-    print("   👉 UI:  http://localhost:8501")
-    print("   👉 API: http://localhost:8000")
-    print("\nPress Ctrl+C to stop everything.")
+    logger.info("✅ Application works! Access it here:")
+    logger.info("   👉 UI:  http://localhost:8501")
+    logger.info("   👉 API: http://localhost:8000")
+    logger.info("Press Ctrl+C to stop everything.")
 
     try:
         # Keep main script running while subprocesses are alive
         backend.wait()
         frontend.wait()
     except KeyboardInterrupt:
-        print("\n🛑 Stopping application...")
+        logger.info("🛑 Stopping application...")
         backend.terminate()
         frontend.terminate()
-        print("Done.")
+        logger.info("Done.")
 
 if __name__ == "__main__":
     run()

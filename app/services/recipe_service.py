@@ -2,6 +2,9 @@ from typing import List, Optional
 from app.services.sources.base import RecipeSource
 from app.services.sources.local import LocalSource
 from app.models import Recipe
+from app.core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 class RecipeService:
     def __init__(self):
@@ -29,7 +32,7 @@ class RecipeService:
                     recipes = source.get_recipes(diets, exclude, meal_type, estimate_prep_time)
                     all_recipes.extend(recipes)
                 except Exception as e:
-                    print(f"Error fetching from source {source}: {e}")
+                    logger.error(f"Error fetching from source {source}: {e}")
                 
         return all_recipes
 

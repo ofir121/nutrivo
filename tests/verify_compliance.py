@@ -1,8 +1,11 @@
 import unittest
+import logging
 from unittest.mock import MagicMock, patch
 from app.services.parser_service import QueryParser
 from app.services.planner import MealPlanner
 from app.models import MealPlanRequest, ParsedQuery
+
+logger = logging.getLogger(__name__)
 
 class TestCompliance(unittest.TestCase):
     def test_parser_preference_extraction(self):
@@ -20,7 +23,7 @@ class TestCompliance(unittest.TestCase):
             parser = QueryParser()
             result = parser.parse("2-day vegetarian plan with high protein")
             
-            print(f"Parsed preferences: {result.preferences}")
+            logger.debug(f"Parsed preferences: {result.preferences}")
             self.assertIn("high-protein", result.preferences)
             self.assertIn("vegetarian", result.diets)
 
@@ -66,7 +69,7 @@ class TestCompliance(unittest.TestCase):
                     req = MealPlanRequest(query="dummy")
                     response = planner.generate_meal_plan(req)
                     
-                    print(f"Compliance: {response.summary.dietary_compliance}")
+                    logger.debug(f"Compliance: {response.summary.dietary_compliance}")
                     self.assertIn("high-protein", response.summary.dietary_compliance)
                     self.assertIn("vegetarian", response.summary.dietary_compliance)
 

@@ -3,14 +3,17 @@ import json
 from typing import Dict, Any, Optional, List
 from openai import OpenAI
 from dotenv import load_dotenv
+from app.core.logging_config import get_logger
 
 load_dotenv()
+
+logger = get_logger(__name__)
 
 class AIService:
     def __init__(self):
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
-            print("Warning: OPENAI_API_KEY not set. LLM enhancement will be disabled.")
+            logger.warning("OPENAI_API_KEY not set. LLM enhancement will be disabled.")
             self.client = None
         else:
             self.client = OpenAI(api_key=api_key)
@@ -72,7 +75,7 @@ Now extract from: "{query}"
             return result
             
         except Exception as e:
-            print(f"LLM enhancement failed: {e}")
+            logger.error(f"LLM enhancement failed: {e}")
             return None
 
 
@@ -130,7 +133,7 @@ Now extract from: "{query}"
             return final_estimates
 
         except Exception as e:
-            print(f"Batch time estimation failed: {e}")
+            logger.error(f"Batch time estimation failed: {e}")
             # Fallback for all
             return {rid: 30 for rid in recipes}
 
@@ -211,7 +214,7 @@ Now extract from: "{query}"
             return final_results
 
         except Exception as e:
-            print(f"Batch processing failed: {e}")
+            logger.error(f"Batch processing failed: {e}")
             return {}
 
 ai_service = AIService()

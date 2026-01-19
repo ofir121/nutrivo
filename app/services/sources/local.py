@@ -5,6 +5,9 @@ from typing import List, Optional, Dict
 from app.services.sources.base import RecipeSource
 from app.models import Recipe, NutritionalInfo
 from app.core.rules import DIET_DEFINITIONS, INGREDIENT_SYNONYMS
+from app.core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 class LocalSource(RecipeSource):
     name = "Local"
@@ -14,13 +17,13 @@ class LocalSource(RecipeSource):
 
     def _load_data(self, file_path: str) -> List[dict]:
         if not os.path.exists(file_path):
-            print(f"Warning: {file_path} not found.")
+            logger.warning(f"{file_path} not found.")
             return []
         try:
             with open(file_path, "r") as f:
                 return json.load(f)
         except json.JSONDecodeError:
-            print(f"Error decoding {file_path}")
+            logger.error(f"Error decoding {file_path}")
             return []
 
     def get_recipes(self, diets: List[str], exclude: List[str], meal_type: Optional[str], estimate_prep_time: bool = False) -> List[Recipe]:
@@ -87,7 +90,7 @@ class LocalSource(RecipeSource):
                     batch_time = time.time() - batch_start
 
                 except Exception as e:
-                    print(f"Batch estimation failed: {e}")
+                    logger.error(f"Batch estimation failed: {e}")
                     time_estimates = {rid: 30 for rid in recipes_needing_time.keys()}
 
         # 5. Adapt to Canonical Model with estimates

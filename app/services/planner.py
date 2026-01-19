@@ -4,6 +4,9 @@ import time
 from datetime import datetime, timedelta
 from app.models import MealPlanRequest, MealPlanResponse, DailyPlan, MealPlanSummary, Meal, NutritionalInfo
 from app.services.parser_service import parser_service
+from app.core.logging_config import get_logger
+
+logger = get_logger(__name__)
 # Helper to access ai_service instance if needed, or import directly if preferred
 try:
     from app.services.ai_service import ai_service as active_ai
@@ -20,13 +23,13 @@ class MealPlanner:
         parse_start = time.time()
         parsed = parser_service.parse(request.query)
         parse_time = time.time() - parse_start
-        print(f"⏱️  Query parsing: {parse_time:.2f}s")
+        logger.info(f"⏱️  Query parsing: {parse_time:.2f}s")
         
         # 2. Check for Conflicts (e.g. "vegan" + "pescatarian")
         # Raises 409 if invalid
         conflict_resolver.validate(parsed)
         
-        print(f"\n🍳 Generating {parsed.days}-day meal plan...\n")
+        logger.info(f"🍳 Generating {parsed.days}-day meal plan...")
         
         # 3. Generate Plan
         meal_plan = []
@@ -103,7 +106,7 @@ class MealPlanner:
 
         # 4. Batch Process with AI (One Call)
         if active_ai and meals_to_refine:
-            print("\n🤖 Batch processing instructions/times with AI...")
+            logger.info("🤖 Batch processing instructions/times with AI...")
             batch_input = {}
             temp_map = {} # map id -> meal object
             
@@ -154,7 +157,7 @@ class MealPlanner:
         )
 
         total_time = time.time() - total_start
-        print(f"\n✅ Total meal plan generation: {total_time:.2f}s\n")
+        logger.info(f"✅ Total meal plan generation: {total_time:.2f}s")
         
         return MealPlanResponse(
             meal_plan_id=str(uuid.uuid4()),

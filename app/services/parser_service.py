@@ -2,6 +2,9 @@ import re
 from typing import List, Optional, Set
 from app.models import ParsedQuery
 from app.core.rules import DIET_DEFINITIONS, INGREDIENT_SYNONYMS
+from app.core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 class QueryParser:
     def parse(self, query: str) -> ParsedQuery:
@@ -87,7 +90,7 @@ class QueryParser:
             from app.services.ai_service import ai_service
             return ai_service.enhance_query(query, current_parse)
         except Exception as e:
-            print(f"LLM enhancement failed: {e}")
+            logger.error(f"LLM enhancement failed: {e}")
             return None
 
     def _extract_duration(self, text: str) -> int:

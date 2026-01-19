@@ -4,6 +4,9 @@ import time
 from typing import List, Optional, Any, Dict
 from app.services.sources.base import RecipeSource
 from app.models import Recipe, NutritionalInfo
+from app.core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 class MealDBSource(RecipeSource):
     name = "TheMealDB"
@@ -159,7 +162,7 @@ class MealDBSource(RecipeSource):
                     batch_time = time.time() - batch_start
 
                 except Exception as e:
-                    print(f"Batch estimation failed: {e}")
+                    logger.error(f"Batch estimation failed: {e}")
                     time_estimates = {rid: 30 for rid in recipes_needing_time.keys()}
         
         # Adapt with estimates (use default 30 if not estimated)
