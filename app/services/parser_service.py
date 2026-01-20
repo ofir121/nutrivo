@@ -122,19 +122,21 @@ class QueryParser:
     def _extract_exclusions(self, text: str) -> List[str]:
         """Extract ingredient exclusions from explicit or '-free' patterns."""
         exclusions = set()
+
+        def normalize_token(token: str) -> str:
+            token = token.strip().lower()
+            if token.endswith("s") and token[:-1] in INGREDIENT_SYNONYMS:
+                return token[:-1]
+            return token
         
         # Check for explicit "no X", "exclude X", "without X"
-        # Regex for "no [word]" or "exclude [word]"
-        matches = re.findall(r'(?:no|exclude|without)\s+([a-z]+)', text)
-        for match in matches:
-             # Normalize if synonym exists
-             key = match
-             # Simple check: if key is in SYNONYMS keys
-             if key in INGREDIENT_SYNONYMS:
-                 exclusions.add(key)
-             else:
-                 # It might be a direct ingredient
-                 exclusions.add(key)
+        # Capture lists like "exclude dairy and nuts"
+        for match in re.finditer(r'(?:no|exclude|without)\s+([a-z][a-z\s,/-]*?)(?:[.;]|$)', text):
+            raw = match.group(1)
+            for item in re.split(r'\s*(?:,|and|or)\s*', raw):
+                if not item:
+                    continue
+                exclusions.add(normalize_token(item))
         
         # Also check for "-free" patterns like "gluten-free" -> exclude gluten
         # This is slightly overlapping with diet types, but "gluten-free" is both a diet and an exclusion.

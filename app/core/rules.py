@@ -40,7 +40,7 @@ INGREDIENT_SYNONYMS: Dict[str, List[str]] = {
     "shellfish": ["shrimp", "crab", "lobster", "clam", "mussel", "oyster"],
     "fish": ["fish", "salmon", "tuna", "cod", "tilapia"],
     "meat": ["meat", "beef", "pork", "chicken", "lamb", "steak", "bacon", "ham"],
-    "gluten": ["wheat", "barley", "rye", "malt", "flour"]
+    "gluten": ["wheat", "barley", "rye", "malt", "flour", "bread"]
 }
 
 # --- Conflict Definitions ---

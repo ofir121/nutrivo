@@ -5,6 +5,7 @@ from typing import List, Optional, Any, Dict
 from app.services.sources.base import RecipeSource
 from app.models import Recipe, NutritionalInfo
 from app.core.logging_config import get_logger
+from app.core.rules import DIET_DEFINITIONS, INGREDIENT_SYNONYMS
 
 logger = get_logger(__name__)
 
@@ -187,7 +188,13 @@ class MealDBSource(RecipeSource):
                 all_text += " " + ing.lower()
         
         for ex in exclude:
-            if ex.lower() in all_text:
+            key = ex.lower()
+            if key.endswith("s") and key[:-1] in INGREDIENT_SYNONYMS:
+                key = key[:-1]
+            bad_words = {key, ex.lower()}
+            if key in INGREDIENT_SYNONYMS:
+                bad_words.update(INGREDIENT_SYNONYMS[key])
+            if any(bw in all_text for bw in bad_words):
                 return False
                 
         # Check Diets
@@ -205,12 +212,12 @@ class MealDBSource(RecipeSource):
                 return False
             if d == "vegetarian" and not is_vegetarian:
                 return False
-            # Gluten Free is hard to verify on MealDB without explicit tags, 
-            # might have to skip or be permissive. 
-            # For safety, let's assume if it's not tagged, we can't guarantee it.
-            if "gluten" in d and "gluten" not in all_text:
-                # Very strict, might result in empty.
-                pass 
+            rules = DIET_DEFINITIONS.get(d, {})
+            forbidden_ingredients = [i.lower() for i in rules.get("forbidden_ingredients", [])]
+            allowed_exceptions = [e.lower() for e in rules.get("allowed_exceptions", [])]
+            if forbidden_ingredients and not any(ex in all_text for ex in allowed_exceptions):
+                if any(fi in all_text for fi in forbidden_ingredients):
+                    return False
 
         return True
 

@@ -32,7 +32,22 @@ class LocalSource(RecipeSource):
         """
         filtered_data = self.recipes
 
-        # 1. Filter by Diet (Hard Constraint)
+        # 1. Filter by Exclusions (Hard Constraint)
+        if exclude:
+            filtered_data = [
+                r for r in filtered_data 
+                if not self._contains_excluded(r, exclude)
+            ]
+
+
+        # 2. Filter by Meal Type
+        if meal_type:
+            filtered_data = [
+                r for r in filtered_data 
+                if self._matches_meal_type(r.get("dishTypes", []), meal_type)
+            ]
+
+        # 3. Filter by Diet (Hard Constraint)
         for diet in diets:
              # Need to map our internal diet keys (vegan) to Spoonacular's (vegan, vegetarian, gluten free)
              # Spoonacular uses spaces usually "gluten free". Our key is "gluten-free".
@@ -48,21 +63,11 @@ class LocalSource(RecipeSource):
                  r for r in filtered_data 
                  if self._matches_diet(r.get("diets", []), diet)
              ]
-
-        # 2. Filter by Exclusions (Hard Constraint)
-        if exclude:
-            filtered_data = [
-                r for r in filtered_data 
-                if not self._contains_excluded(r, exclude)
-            ]
-
-
-        # 3. Filter by Meal Type
-        if meal_type:
-            filtered_data = [
-                r for r in filtered_data 
-                if self._matches_meal_type(r.get("dishTypes", []), meal_type)
-            ]
+             # Enforce diet rules against ingredients (in case diet tags are wrong/missing).
+             filtered_data = [
+                 r for r in filtered_data
+                 if not self._violates_diet(r, diet)
+             ]
 
         # 4. Batch Time Estimation (only if requested)
         time_estimates = {}
@@ -120,15 +125,47 @@ class LocalSource(RecipeSource):
         title_text = recipe.get("title", "").lower()
         
         for ex in exclude_list:
-             bad_words = [ex]
-             if ex in INGREDIENT_SYNONYMS:
-                 bad_words.extend(INGREDIENT_SYNONYMS[ex])
+             key = ex.lower()
+             if key.endswith("s") and key[:-1] in INGREDIENT_SYNONYMS:
+                 key = key[:-1]
+             bad_words = {key, ex.lower()}
+             if key in INGREDIENT_SYNONYMS:
+                 bad_words.update(INGREDIENT_SYNONYMS[key])
             
              for bw in bad_words:
                  if bw.lower() in ingredients_text or bw.lower() in title_text:
                      return True
         return False
 
+
+    def _violates_diet(self, recipe: dict, diet: str) -> bool:
+        rules = DIET_DEFINITIONS.get(diet, {})
+        forbidden_ingredients = [i.lower() for i in rules.get("forbidden_ingredients", [])]
+        allowed_exceptions = [e.lower() for e in rules.get("allowed_exceptions", [])]
+        forbidden_tags = [t.lower() for t in rules.get("forbidden_tags", [])]
+
+        # Check tags/diets first
+        recipe_tags = [t.lower() for t in recipe.get("diets", [])]
+        if any(tag in recipe_tags for tag in forbidden_tags):
+            return True
+
+        # Check title, skipping if it contains an allowed exception
+        title_text = recipe.get("title", "").lower()
+        if title_text and not any(ex in title_text for ex in allowed_exceptions):
+            if any(fi in title_text for fi in forbidden_ingredients):
+                return True
+
+        # Check ingredients line-by-line; skip lines with allowed exceptions
+        for ing in recipe.get("extendedIngredients", []):
+            line = ing.get("original", "").lower()
+            if not line:
+                continue
+            if any(ex in line for ex in allowed_exceptions):
+                continue
+            if any(fi in line for fi in forbidden_ingredients):
+                return True
+
+        return False
 
     def _adapt(self, data: dict, time_estimates: Dict[str, int] = None) -> Recipe:
         if time_estimates is None:
