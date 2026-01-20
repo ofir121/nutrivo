@@ -145,12 +145,17 @@ class MealPlanner:
         avg_prep = "0 mins"
         if total_meals_count > 0:
             avg_prep = f"{total_prep_time_mins // total_meals_count} mins"
+
+        combined_preferences = []
+        for item in parsed.preferences + parsed.diets:
+            if item not in combined_preferences:
+                combined_preferences.append(item)
         
         summary = MealPlanSummary(
             total_meals=total_meals_count,
             diets=parsed.diets,
             exclusions=parsed.exclude,
-            preferences=parsed.preferences,
+            preferences=combined_preferences,
             estimated_cost="$45-60",  # Mocked for now
             avg_prep_time=avg_prep
         )
@@ -163,7 +168,7 @@ class MealPlanner:
             duration_days=parsed.days,
             generated_at=datetime.now().isoformat(),
             clarified_intent=parsed.clarified_intent,
-            preferences=parsed.preferences,
+            preferences=combined_preferences,
             meal_plan=meal_plan,
             summary=summary
         )

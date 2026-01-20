@@ -71,6 +71,7 @@ class TestCompliance(unittest.TestCase):
                     
                     logger.debug(f"Diets: {response.summary.diets}, Preferences: {response.summary.preferences}")
                     self.assertIn("high-protein", response.summary.preferences)
+                    self.assertIn("vegetarian", response.summary.preferences)
                     self.assertIn("vegetarian", response.summary.diets)
 
 if __name__ == '__main__':
