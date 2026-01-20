@@ -17,6 +17,14 @@ from app.services.conflict_resolver import conflict_resolver
 
 class MealPlanner:
     def generate_meal_plan(self, request: MealPlanRequest) -> MealPlanResponse:
+        """Generate a multi-day meal plan using deterministic scoring.
+
+        Args:
+            request: Meal plan request containing query and options.
+
+        Returns:
+            MealPlanResponse with a daily meal schedule and summary.
+        """
         total_start = time.time()
         
         # 1. Parse the query (Deterministic extraction)
@@ -188,6 +196,7 @@ class MealPlanner:
         )
 
     def _pick_best_recipe(self, candidates, parsed, context):
+        """Pick the top-scoring recipe with a stable tie-break."""
         if not candidates:
             return None
         scored = []
@@ -197,6 +206,7 @@ class MealPlanner:
         return scored[0][1]
 
     def _ingredient_tokens(self, ingredients):
+        """Extract simple ingredient tokens for overlap penalties."""
         tokens = set()
         for ingredient in ingredients or []:
             for token in ingredient.lower().split():

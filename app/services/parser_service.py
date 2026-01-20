@@ -8,6 +8,14 @@ logger = get_logger(__name__)
 
 class QueryParser:
     def parse(self, query: str) -> ParsedQuery:
+        """Parse a natural language query into a structured ParsedQuery.
+
+        Args:
+            query: User input text.
+
+        Returns:
+            ParsedQuery with extracted constraints and preferences.
+        """
         query_lower = query.lower()
         # 1. Try rule-based extraction first
         days = self._extract_duration(query_lower)
@@ -90,6 +98,7 @@ class QueryParser:
             return None
 
     def _extract_duration(self, text: str) -> int:
+        """Extract requested duration in days with a default fallback."""
         if "next week" in text or "week" in text:
             # Check for "2 weeks", etc. if wanted, but cap at 7 as per spec
             return 7
@@ -101,6 +110,7 @@ class QueryParser:
         return 3 # Default
 
     def _extract_diets(self, text: str) -> List[str]:
+        """Extract known diet keywords from the query."""
         # Collect all matches
         found_diets = []
         for diet in DIET_DEFINITIONS.keys():
@@ -110,6 +120,7 @@ class QueryParser:
 
 
     def _extract_exclusions(self, text: str) -> List[str]:
+        """Extract ingredient exclusions from explicit or '-free' patterns."""
         exclusions = set()
         
         # Check for explicit "no X", "exclude X", "without X"
@@ -137,12 +148,14 @@ class QueryParser:
         return list(exclusions)
 
     def _extract_calories(self, text: str) -> Optional[int]:
+        """Extract target calorie value if present."""
         match = re.search(r'(\d+)\s*(?:cal|kcal|calories)', text)
         if match:
              return int(match.group(1))
         return None
 
     def _extract_meals_per_day(self, text: str) -> int:
+        """Extract meals per day, defaulting to 3 with snack bump."""
         # Check for snacks
         count = 3
         if "snack" in text:
@@ -150,6 +163,7 @@ class QueryParser:
         return count
 
     def _extract_preferences(self, text: str) -> List[str]:
+        """Extract soft preferences from common query phrases."""
         preferences = set()
         if re.search(r'\bhigh[- ]protein\b', text):
             preferences.add("high-protein")
@@ -172,6 +186,7 @@ class QueryParser:
         return list(preferences)
 
     def _merge_preferences(self, base: List[str], extra: List[str]) -> List[str]:
+        """Merge preference lists preserving order and uniqueness."""
         merged = []
         for pref in base + extra:
             if pref not in merged:
@@ -187,6 +202,7 @@ class QueryParser:
         calories: Optional[int],
         preferences: List[str]
     ) -> bool:
+        """Determine whether the query lacks concrete constraints."""
         vague_terms = ["healthy", "next week"]
         vague_only = [p for p in preferences if p in ["healthy"]]
         has_specifics = bool(diets or exclude or calories or (preferences and len(vague_only) < len(preferences)))
