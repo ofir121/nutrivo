@@ -15,7 +15,7 @@ class RecipeService:
         from app.services.sources.mealdb import MealDBSource
         self.sources.append(MealDBSource())
 
-    def get_recipes(self, diets: List[str] = [], exclude: List[str] = [], meal_type: Optional[str] = None, estimate_prep_time: bool = False, sources: List[str] = None) -> List[Recipe]:
+    def get_recipes(self, diets: List[str] = [], exclude: List[str] = [], meal_type: Optional[str] = None, sources: List[str] = None) -> List[Recipe]:
         """
         Aggregates recipes from all registered sources.
         Returns a list of Recipe objects.
@@ -29,7 +29,7 @@ class RecipeService:
         for source in self.sources:
             if source.name in active_source_names:
                 try:
-                    recipes = source.get_recipes(diets, exclude, meal_type, estimate_prep_time)
+                    recipes = source.get_recipes(diets, exclude, meal_type)
                     all_recipes.extend(recipes)
                 except Exception as e:
                     logger.error(f"Error fetching from source {source}: {e}")

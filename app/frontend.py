@@ -23,7 +23,6 @@ Welcome! Describe your ideal meal plan, and I'll generate a schedule for you.
 
 # Input Section
 query = st.text_area("Enter your request:", height=100, placeholder="E.g. Create a 3-day meal plan for a vegan athlete...")
-estimate_prep_time = st.checkbox("Use AI to estimate prep time (slower)", value=False)
 sources = st.multiselect(
     "Select Recipe Sources",
     ["Local", "TheMealDB"],
@@ -38,7 +37,6 @@ if st.button("Generate Plan", type="primary"):
             try:
                 response = requests.post(API_URL, json={
                     "query": query,
-                    "estimate_prep_time": estimate_prep_time,
                     "sources": sources
                 })
                 

@@ -6,6 +6,7 @@ from app.services.sources.base import RecipeSource
 from app.models import Recipe, NutritionalInfo
 from app.core.logging_config import get_logger
 from app.core.rules import DIET_DEFINITIONS, INGREDIENT_SYNONYMS
+from app.utils.time_estimator import estimate_prep_time
 
 logger = get_logger(__name__)
 
@@ -13,7 +14,7 @@ class MealDBSource(RecipeSource):
     name = "TheMealDB"
     BASE_URL = "https://www.themealdb.com/api/json/v1/1/"
 
-    def get_recipes(self, diets: List[str], exclude: List[str], meal_type: Optional[str], estimate_prep_time: bool = False) -> List[Recipe]:
+    def get_recipes(self, diets: List[str], exclude: List[str], meal_type: Optional[str]) -> List[Recipe]:
         """
         Fetch recipes from TheMealDB.
         Note: The free API has limited filtering capabilities.
@@ -143,28 +144,17 @@ class MealDBSource(RecipeSource):
             if self._satisfies_constraints(m, diets, exclude):
                 final_recipes.append(m)
         
-        # BATCH TIME ESTIMATION (only if requested)
+        # TIME ESTIMATION
         time_estimates = {}
-        if estimate_prep_time:
-            # Collect recipes that need time estimation
-            recipes_needing_time = {}
-            for m in final_recipes:
-                meal_id = f"mealdb_{m.get('idMeal')}"
-                instructions_text = m.get("strInstructions", "")
-                if instructions_text:
-                    recipes_needing_time[meal_id] = instructions_text
-            
-            # Get batch estimates
-            if recipes_needing_time:
-                try:
-                    batch_start = time.time()
-                    from app.services.ai_service import ai_service
-                    time_estimates = ai_service.batch_estimate_preparation_time(recipes_needing_time)
-                    batch_time = time.time() - batch_start
-
-                except Exception as e:
-                    logger.error(f"Batch estimation failed: {e}")
-                    time_estimates = {rid: 30 for rid in recipes_needing_time.keys()}
+        for m in final_recipes:
+            meal_id = f"mealdb_{m.get('idMeal')}"
+            instructions_text = m.get("strInstructions", "")
+            ingredients = []
+            for i in range(1, 21):
+                ing = m.get(f"strIngredient{i}")
+                if ing and ing.strip():
+                    ingredients.append(ing.strip())
+            time_estimates[meal_id] = estimate_prep_time(ingredients, instructions_text)
         
         # Adapt with estimates (use default 30 if not estimated)
         adapted_recipes = []

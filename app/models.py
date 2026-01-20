@@ -5,7 +5,6 @@ from datetime import datetime
 
 class MealPlanRequest(BaseModel):
     query: str = Field(..., description="Natural language meal plan request")
-    estimate_prep_time: bool = Field(False, description="Use AI to estimate preparation times (slower but more accurate)")
     sources: List[str] = Field(default=["Local"], description="List of recipe sources to use")
 
 class ParsedQuery(BaseModel):

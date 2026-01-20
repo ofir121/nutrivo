@@ -79,7 +79,7 @@ Interactive documentation (Swagger UI) is available at:
 - **Hybrid Recipe Sourcing**: Combines a local mock database for speed/reliability with TheMealDB for variety.
 - **Hybrid Parsing**: Uses a lightweight regex parser for speed and rule-based preferences, with conditional LLM enrichment only for ambiguous queries.
 - **Planner Flow**: Parser (rules + conditional LLM) -> conflict resolver -> retrieve -> score -> greedy plan -> response.
-- **LLM Usage Policy**: Default is 0 calls for typical queries; the parser only calls the LLM when the query is ambiguous, and the planner uses no LLM calls unless `estimate_prep_time` is true.
+- **LLM Usage Policy**: Default is 0 calls for typical queries; the parser only calls the LLM when the query is ambiguous.
 
 ## Future Improvements
 - **LLM Integration**: Further enhance LLM usage for more complex reasoning.

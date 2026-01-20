@@ -167,17 +167,25 @@ class QueryParser:
     def _extract_preferences(self, text: str) -> List[str]:
         """Extract soft preferences from common query phrases."""
         preferences = set()
+        meal_specific_minutes = self._extract_meal_specific_minutes(text)
+        for pref in meal_specific_minutes:
+            preferences.add(pref)
+
+        meal_specific_quick = self._extract_meal_specific_quick(text)
+        for pref in meal_specific_quick:
+            preferences.add(pref)
+
         if re.search(r'\bhigh[- ]protein\b', text):
             preferences.add("high-protein")
         if re.search(r'\blow[- ]carb\b', text):
             preferences.add("low-carb")
         if re.search(r'\bbudget(-friendly)?\b', text):
             preferences.add("budget-friendly")
-        if re.search(r'\bquick\b|\bfast\b', text):
+        if re.search(r'\bquick\b|\bfast\b', text) and not meal_specific_quick:
             preferences.add("quick")
 
         minutes_match = re.search(r'under\s+(\d+)\s*(?:minutes|mins|min)\b', text)
-        if minutes_match:
+        if minutes_match and not meal_specific_minutes:
             minutes = minutes_match.group(1)
             preferences.add("quick")
             preferences.add(f"under-{minutes}-minutes")
@@ -186,6 +194,30 @@ class QueryParser:
             preferences.add("healthy")
 
         return list(preferences)
+
+    def _extract_meal_specific_minutes(self, text: str) -> List[str]:
+        """Extract meal-specific time constraints like breakfast under 15 minutes."""
+        matches = []
+        meal_types = ["breakfast", "lunch", "dinner", "snack"]
+        for meal in meal_types:
+            pattern_after = rf'{meal}[^.;,\n]{{0,40}}?under\s+(\d+)\s*(?:minutes|mins|min)\b'
+            pattern_before = rf'under\s+(\d+)\s*(?:minutes|mins|min)\b[^.;,\n]{{0,40}}?{meal}'
+            for match in re.finditer(pattern_after, text):
+                matches.append(f"{meal}-under-{match.group(1)}-minutes")
+            for match in re.finditer(pattern_before, text):
+                matches.append(f"{meal}-under-{match.group(1)}-minutes")
+        return matches
+
+    def _extract_meal_specific_quick(self, text: str) -> List[str]:
+        """Extract meal-specific quick constraints like quick breakfast."""
+        matches = []
+        meal_types = ["breakfast", "lunch", "dinner", "snack"]
+        for meal in meal_types:
+            pattern_after = rf'(?:quick|fast)\s+{meal}\b'
+            pattern_before = rf'{meal}\s+(?:quick|fast)\b'
+            if re.search(pattern_after, text) or re.search(pattern_before, text):
+                matches.append(f"{meal}-quick")
+        return matches
 
     def _merge_preferences(self, base: List[str], extra: List[str]) -> List[str]:
         """Merge preference lists preserving order and uniqueness."""

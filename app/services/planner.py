@@ -7,11 +7,6 @@ from app.core.logging_config import get_logger
 from app.services.scoring import score_recipe
 
 logger = get_logger(__name__)
-# Helper to access ai_service instance if needed, or import directly if preferred
-try:
-    from app.services.ai_service import ai_service as active_ai
-except ImportError:
-    active_ai = None
 from app.services.recipe_service import recipe_service
 from app.services.conflict_resolver import conflict_resolver
 
@@ -41,7 +36,6 @@ class MealPlanner:
         
         # 3. Generate Plan
         meal_plan = []
-        meals_to_refine = []  # List of (Meal object, raw_instructions_list)
         warnings = []
         defaults_applied = []
         
@@ -70,9 +64,21 @@ class MealPlanner:
                      diets=parsed.diets,
                      exclude=parsed.exclude,
                      meal_type=m_type,
-                     estimate_prep_time=request.estimate_prep_time, 
                      sources=request.sources
                  )
+
+                 time_limit = self._extract_meal_time_limit(parsed.preferences, m_type)
+                 if time_limit:
+                     limited = [
+                         r for r in candidates
+                         if r.ready_in_minutes and r.ready_in_minutes <= time_limit
+                     ]
+                     if limited:
+                         candidates = limited
+                     else:
+                         warnings.append(
+                             f"No {m_type} recipes found under {time_limit} mins on day {day_offset + 1}; relaxing time constraint."
+                         )
                  
                  # Score/Filter for Soft Constraints & Diversity
                  available_candidates = [r for r in candidates if r.id not in used_recipes]
@@ -111,8 +117,6 @@ class MealPlanner:
                      day_ingredient_tokens.update(self._ingredient_tokens(recipe.ingredients))
                      day_dish_types.update(recipe.dish_types)
                      
-                     if active_ai:
-                         meals_to_refine.append((meal, recipe.instructions))
                  else:
                      warnings.append(f"No candidates found for {m_type} on day {day_offset + 1}")
  
@@ -123,30 +127,6 @@ class MealPlanner:
              ))
              prev_day_ingredient_tokens = day_ingredient_tokens
              prev_day_dish_types = day_dish_types
-
-        # 4. Batch Process with AI (One Call)
-        if active_ai and meals_to_refine and request.estimate_prep_time:
-            logger.info("🤖 Batch processing instructions/times with AI...")
-            batch_input = {}
-            temp_map = {} # map id -> meal object
-            
-            for idx, (meal_obj, raw_instr) in enumerate(meals_to_refine):
-                tid = str(idx)
-                # Join list of strings to text block
-                text_block = "\n".join(raw_instr) if raw_instr else ""
-                batch_input[tid] = text_block
-                temp_map[tid] = meal_obj
-                
-            processed = active_ai.batch_process_recipes(batch_input, estimate_time=request.estimate_prep_time)
-            
-            # Apply updates
-            for tid, data in processed.items():
-                target_meal = temp_map.get(tid)
-                if target_meal:
-                    if data.get("instructions"):
-                        target_meal.instructions = data["instructions"]
-                    if request.estimate_prep_time and data.get("total_minutes"):
-                        target_meal.preparation_time = f"{data['total_minutes']} mins"
 
         # 5. Create Summary (Recalculate stats after AI updates)
         total_meals_count = 0
@@ -213,6 +193,18 @@ class MealPlanner:
                 if len(token) >= 3:
                     tokens.add(token)
         return tokens
+
+    def _extract_meal_time_limit(self, preferences, meal_type):
+        """Extract a meal-specific time limit from preferences."""
+        if not preferences:
+            return None
+        prefix = f"{meal_type}-under-"
+        for pref in preferences:
+            if pref.startswith(prefix) and pref.endswith("-minutes"):
+                minutes = pref[len(prefix):-len("-minutes")]
+                if minutes.isdigit():
+                    return int(minutes)
+        return None
 
 
 planner = MealPlanner()

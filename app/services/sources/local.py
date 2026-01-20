@@ -1,11 +1,11 @@
 import json
 import os
-import time
 from typing import List, Optional, Dict
 from app.services.sources.base import RecipeSource
 from app.models import Recipe, NutritionalInfo
 from app.core.rules import DIET_DEFINITIONS, INGREDIENT_SYNONYMS
 from app.core.logging_config import get_logger
+from app.utils.time_estimator import estimate_prep_time
 
 logger = get_logger(__name__)
 
@@ -26,7 +26,7 @@ class LocalSource(RecipeSource):
             logger.error(f"Error decoding {file_path}")
             return []
 
-    def get_recipes(self, diets: List[str], exclude: List[str], meal_type: Optional[str], estimate_prep_time: bool = False) -> List[Recipe]:
+    def get_recipes(self, diets: List[str], exclude: List[str], meal_type: Optional[str]) -> List[Recipe]:
         """
         Filters the Spoonacular-formatted local data and adapts it to our canonical Recipe model.
         """
@@ -69,34 +69,18 @@ class LocalSource(RecipeSource):
                  if not self._violates_diet(r, diet)
              ]
 
-        # 4. Batch Time Estimation (only if requested)
+        # 4. Time Estimation
         time_estimates = {}
-        if estimate_prep_time:
-            # Collect recipes needing time estimation
-            recipes_needing_time = {}
-            for r in filtered_data:
-                recipe_id = str(r.get("id"))
-                if r.get("readyInMinutes", 0) <= 0:
-                    # Extract instructions
-                    steps = []
-                    if r.get("analyzedInstructions"):
-                        for section in r["analyzedInstructions"]:
-                            for step in section.get("steps", []):
-                                steps.append(step.get("step", ""))
-                    if steps:
-                        recipes_needing_time[recipe_id] = " ".join(steps)
-            
-            # Get batch estimates
-            if recipes_needing_time:
-                try:
-                    batch_start = time.time()
-                    from app.services.ai_service import ai_service
-                    time_estimates = ai_service.batch_estimate_preparation_time(recipes_needing_time)
-                    batch_time = time.time() - batch_start
-
-                except Exception as e:
-                    logger.error(f"Batch estimation failed: {e}")
-                    time_estimates = {rid: 30 for rid in recipes_needing_time.keys()}
+        for r in filtered_data:
+            recipe_id = str(r.get("id"))
+            if r.get("readyInMinutes", 0) <= 0:
+                steps = []
+                if r.get("analyzedInstructions"):
+                    for section in r["analyzedInstructions"]:
+                        for step in section.get("steps", []):
+                            steps.append(step.get("step", ""))
+                ingredients = [i.get("original") for i in r.get("extendedIngredients", [])]
+                time_estimates[recipe_id] = estimate_prep_time(ingredients, steps)
 
         # 5. Adapt to Canonical Model with estimates
         return [self._adapt(r, time_estimates) for r in filtered_data]
