@@ -8,9 +8,9 @@ The goal is to simplify meal planning by converting natural language requests (e
 ## Architecture Overview
 - **Framework**: FastAPI (Python) for high-performance async API capabilities.
 - **Service Layer**:
-  - `LLMService`: Uses GPT-4o-mini for robust intent extraction and recipe instruction formatting.
+  - `LLMService`: Optional LLM enhancement for ambiguous queries and batch time estimation.
   - `RecipeService`: Aggregates recipes from TheMealDB API and a local mock database.
-  - `MealPlanner`: Orchestrates the logic to assemble daily plans, ensuring dietary compliance and variety.
+  - `MealPlanner`: Orchestrates the logic to assemble daily plans with deterministic scoring and greedy selection.
 - **Data**: Hybrid approach using external API (MealDB) and local JSON.
 
 ## Setup & Installation
@@ -77,7 +77,9 @@ Interactive documentation (Swagger UI) is available at:
 ## Design Decisions & Trade-offs
 - **FastAPI**: Chosen for speed and built-in validation (Pydantic).
 - **Hybrid Recipe Sourcing**: Combines a local mock database for speed/reliability with TheMealDB for variety.
-- **Hybrid Parsing**: Uses a lightweight regex parser for speed, enriched by an LLM (GPT-4o-mini) for deep understanding of complex intents and instruction formatting.
+- **Hybrid Parsing**: Uses a lightweight regex parser for speed and rule-based preferences, with conditional LLM enrichment only for ambiguous queries.
+- **Planner Flow**: Parser (rules + conditional LLM) -> conflict resolver -> retrieve -> score -> greedy plan -> response.
+- **LLM Usage Policy**: Default is 0 calls for typical queries; the parser only calls the LLM when the query is ambiguous, and the planner uses no LLM calls unless `estimate_prep_time` is true.
 
 ## Future Improvements
 - **LLM Integration**: Further enhance LLM usage for more complex reasoning.

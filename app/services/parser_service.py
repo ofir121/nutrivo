@@ -1,5 +1,5 @@
 import re
-from typing import List, Optional, Set
+from typing import List, Optional
 from app.models import ParsedQuery
 from app.core.rules import DIET_DEFINITIONS, INGREDIENT_SYNONYMS
 from app.core.logging_config import get_logger
@@ -9,28 +9,25 @@ logger = get_logger(__name__)
 class QueryParser:
     def parse(self, query: str) -> ParsedQuery:
         query_lower = query.lower()
-        
-
-        
         # 1. Try rule-based extraction first
-
         days = self._extract_duration(query_lower)
         diets = self._extract_diets(query_lower)
         exclude = self._extract_exclusions(query_lower)
         calories = self._extract_calories(query_lower)
         meals_per_day = self._extract_meals_per_day(query_lower)
-        
+        preferences = self._extract_preferences(query_lower)
 
-
-        # 2. Always use LLM for intent extraction (parallel enrichment)
-
-        
-        enhanced = self._try_llm_enhancement(query, {
-            "days": days,
-            "diets": diets,
-            "exclude": exclude,
-            "calories": calories
-        })
+        # 2. Only use LLM for ambiguous queries
+        enhanced = None
+        if self._is_ambiguous(query_lower, days, diets, exclude, calories, preferences):
+            enhanced = self._try_llm_enhancement(query, {
+                "days": days,
+                "diets": diets,
+                "exclude": exclude,
+                "calories": calories,
+                "preferences": preferences,
+                "meals_per_day": meals_per_day
+            })
         
         if enhanced:
 
@@ -58,9 +55,8 @@ class QueryParser:
                 meals_per_day = enhanced.get("meals_per_day")
             
         # Extract preferences from LLM response
-        preferences = []
         if enhanced and enhanced.get("preferences"):
-            preferences = enhanced.get("preferences", [])
+            preferences = self._merge_preferences(preferences, enhanced.get("preferences", []))
 
         
         # Extract clarified intent from LLM response
@@ -152,5 +148,55 @@ class QueryParser:
         if "snack" in text:
             count += 1 # Rough logic
         return count
+
+    def _extract_preferences(self, text: str) -> List[str]:
+        preferences = set()
+        if re.search(r'\bhigh[- ]protein\b', text):
+            preferences.add("high-protein")
+        if re.search(r'\blow[- ]carb\b', text):
+            preferences.add("low-carb")
+        if re.search(r'\bbudget(-friendly)?\b', text):
+            preferences.add("budget-friendly")
+        if re.search(r'\bquick\b|\bfast\b', text):
+            preferences.add("quick")
+
+        minutes_match = re.search(r'under\s+(\d+)\s*(?:minutes|mins|min)\b', text)
+        if minutes_match:
+            minutes = minutes_match.group(1)
+            preferences.add("quick")
+            preferences.add(f"under-{minutes}-minutes")
+
+        if "healthy" in text:
+            preferences.add("healthy")
+
+        return list(preferences)
+
+    def _merge_preferences(self, base: List[str], extra: List[str]) -> List[str]:
+        merged = []
+        for pref in base + extra:
+            if pref not in merged:
+                merged.append(pref)
+        return merged
+
+    def _is_ambiguous(
+        self,
+        text: str,
+        days: int,
+        diets: List[str],
+        exclude: List[str],
+        calories: Optional[int],
+        preferences: List[str]
+    ) -> bool:
+        vague_terms = ["healthy", "next week"]
+        vague_only = [p for p in preferences if p in ["healthy"]]
+        has_specifics = bool(diets or exclude or calories or (preferences and len(vague_only) < len(preferences)))
+
+        if not diets and not exclude and calories is None and not preferences and days == 3:
+            return True
+
+        if any(term in text for term in vague_terms) and not has_specifics:
+            return True
+
+        return False
 
 parser_service = QueryParser()

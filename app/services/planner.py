@@ -1,10 +1,10 @@
-import random
 import uuid
 import time
 from datetime import datetime, timedelta
 from app.models import MealPlanRequest, MealPlanResponse, DailyPlan, MealPlanSummary, Meal, NutritionalInfo
 from app.services.parser_service import parser_service
 from app.core.logging_config import get_logger
+from app.services.scoring import score_recipe
 
 logger = get_logger(__name__)
 # Helper to access ai_service instance if needed, or import directly if preferred
@@ -34,17 +34,27 @@ class MealPlanner:
         # 3. Generate Plan
         meal_plan = []
         meals_to_refine = []  # List of (Meal object, raw_instructions_list)
+        warnings = []
+        defaults_applied = []
         
         used_recipes = set() # For diversity logic
         
         today = datetime.now().date()
+        prev_day_ingredient_tokens = set()
+        prev_day_dish_types = set()
         
         for day_offset in range(parsed.days):
              current_date = (today + timedelta(days=day_offset + 1)).isoformat()
              daily_meals = []
+             used_today = set()
+             day_ingredient_tokens = set()
+             day_dish_types = set()
+             meal_types = ["breakfast", "lunch", "dinner"]
+             if parsed.meals_per_day > 3:
+                 meal_types.append("snack")
              
              # Try to find a recipe for each type: breakfast, lunch, dinner
-             for m_type in ["breakfast", "lunch", "dinner"]:
+             for m_type in meal_types:
                  
                  # Fetch candidates matching HARD CONSTRAINTS (Diet + Exclusions)
                  # DISABLE per-recipe AI estimation here to batch it later
@@ -52,33 +62,30 @@ class MealPlanner:
                      diets=parsed.diets,
                      exclude=parsed.exclude,
                      meal_type=m_type,
-                     estimate_prep_time=False, 
+                     estimate_prep_time=request.estimate_prep_time, 
                      sources=request.sources
                  )
-
                  
                  # Score/Filter for Soft Constraints & Diversity
                  available_candidates = [r for r in candidates if r.id not in used_recipes]
+                 context = {
+                     "recent_ingredient_tokens": prev_day_ingredient_tokens,
+                     "recent_dish_types": prev_day_dish_types
+                 }
+                 recipe = self._pick_best_recipe(available_candidates, parsed, context)
                  
-                 # Filter by Preferences (e.g. high-protein)
-                 # Normalize preferences
-                 if parsed.preferences:
-                     prefs = [p.lower().replace("-", " ") for p in parsed.preferences]
-                     if "high protein" in prefs:
-                         # Sort by protein descending and take top 50% or top 3
-                         # Ensure we have candidates with protein info
-                         available_candidates.sort(key=lambda r: r.nutrition.protein, reverse=True)
-                         # Take top 3 to ensure high protein, but maintain slight randomness
-                         if len(available_candidates) > 3:
-                             available_candidates = available_candidates[:3]
-                
                  # Fallback: if we ran out of unique recipes, reuse from candidates
-                 if not available_candidates:
-                     available_candidates = candidates
+                 if not recipe:
+                     fallback_pool = [r for r in candidates if r.id not in used_today]
+                     if not fallback_pool:
+                         fallback_pool = candidates
+                     recipe = self._pick_best_recipe(fallback_pool, parsed, context)
+                     if recipe:
+                         defaults_applied.append(f"Reused recipe pool for {m_type} on day {day_offset + 1}")
                  
-                 if available_candidates:
-                     recipe = random.choice(available_candidates)
+                 if recipe:
                      used_recipes.add(recipe.id)
+                     used_today.add(recipe.id)
                      
                      # Create Meal with raw instructions initially
                      meal = Meal(
@@ -93,19 +100,24 @@ class MealPlanner:
                      )
                      daily_meals.append(meal)
                      
+                     day_ingredient_tokens.update(self._ingredient_tokens(recipe.ingredients))
+                     day_dish_types.update(recipe.dish_types)
+                     
                      if active_ai:
                          meals_to_refine.append((meal, recipe.instructions))
                  else:
-                     pass
+                     warnings.append(f"No candidates found for {m_type} on day {day_offset + 1}")
  
              meal_plan.append(DailyPlan(
                  day=day_offset + 1,
                  date=current_date,
                  meals=daily_meals
              ))
+             prev_day_ingredient_tokens = day_ingredient_tokens
+             prev_day_dish_types = day_dish_types
 
         # 4. Batch Process with AI (One Call)
-        if active_ai and meals_to_refine:
+        if active_ai and meals_to_refine and request.estimate_prep_time:
             logger.info("🤖 Batch processing instructions/times with AI...")
             batch_input = {}
             temp_map = {} # map id -> meal object
@@ -157,7 +169,9 @@ class MealPlanner:
             exclusions=parsed.exclude,
             preferences=combined_preferences,
             estimated_cost="$45-60",  # Mocked for now
-            avg_prep_time=avg_prep
+            avg_prep_time=avg_prep,
+            warnings=warnings,
+            defaults_applied=defaults_applied
         )
 
         total_time = time.time() - total_start
@@ -172,6 +186,23 @@ class MealPlanner:
             meal_plan=meal_plan,
             summary=summary
         )
+
+    def _pick_best_recipe(self, candidates, parsed, context):
+        if not candidates:
+            return None
+        scored = []
+        for recipe in candidates:
+            scored.append((score_recipe(recipe, parsed, context), recipe))
+        scored.sort(key=lambda item: (-item[0], item[1].id))
+        return scored[0][1]
+
+    def _ingredient_tokens(self, ingredients):
+        tokens = set()
+        for ingredient in ingredients or []:
+            for token in ingredient.lower().split():
+                if len(token) >= 3:
+                    tokens.add(token)
+        return tokens
 
 
 planner = MealPlanner()

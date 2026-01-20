@@ -52,6 +52,17 @@ class TestParserService:
         """Test meals per day logic."""
         assert parser_service._extract_meals_per_day("standard plan") == 3
         assert parser_service._extract_meals_per_day("include snacks") == 4
+    
+    def test_extract_preferences_rules(self, parser_service):
+        """Test preference extraction rules."""
+        prefs = parser_service._extract_preferences(
+            "Need a high-protein, low carb, budget-friendly plan under 15 minutes"
+        )
+        assert "high-protein" in prefs
+        assert "low-carb" in prefs
+        assert "budget-friendly" in prefs
+        assert "quick" in prefs
+        assert "under-15-minutes" in prefs
 
     # --- Integration / Full Parse Tests with Mocked LLM ---
 
@@ -68,6 +79,7 @@ class TestParserService:
         assert "vegan" in result.diets
         assert result.calories == 2000
         assert result.meals_per_day == 3 # Default
+        mock_llm.assert_not_called()
 
     @patch('app.services.parser_service.QueryParser._try_llm_enhancement')
     def test_parse_with_llm_enhancement(self, mock_llm, parser_service):
@@ -97,3 +109,15 @@ class TestParserService:
         assert result.calories == 2500
         assert result.meals_per_day == 5
         assert result.clarified_intent == "user wants high protein vegan"
+        mock_llm.assert_called_once()
+
+    @patch('app.services.parser_service.QueryParser._try_llm_enhancement')
+    def test_parse_ambiguous_query_calls_llm(self, mock_llm, parser_service):
+        mock_llm.return_value = {
+            "duration_days": 7,
+            "preferences": ["healthy"]
+        }
+        result = parser_service.parse("next week healthy plan")
+        assert result.days == 7
+        assert "healthy" in result.preferences
+        mock_llm.assert_called_once()

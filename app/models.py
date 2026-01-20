@@ -61,6 +61,8 @@ class MealPlanSummary(BaseModel):
     preferences: List[str] = Field(default_factory=list)  # e.g., ["high-protein", "low-carb"]
     estimated_cost: str
     avg_prep_time: str
+    warnings: List[str] = Field(default_factory=list)
+    defaults_applied: List[str] = Field(default_factory=list)
 
 class MealPlanResponse(BaseModel):
     meal_plan_id: str
