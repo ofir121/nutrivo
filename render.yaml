@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: nutrivo
+    env: docker
+    plan: free
+    autoDeploy: true
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: API_URL
+        value: http://127.0.0.1:8000/api/generate-meal-plan
+      - key: PYTHONUNBUFFERED
+        value: "1"
