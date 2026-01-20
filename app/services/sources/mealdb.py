@@ -240,10 +240,10 @@ class MealDBSource(RecipeSource):
             ingredients=ingredients,
             instructions=steps,
             nutrition=NutritionalInfo(
-                calories=500, # Placeholder
-                protein=20,   # Placeholder
-                carbs=50,     # Placeholder
-                fat=20        # Placeholder
+                calories=0, # Placeholder: TheMealDB does not provide nutrition data.
+                protein=0,   # Placeholder: TheMealDB does not provide nutrition data.
+                carbs=0,     # Placeholder: TheMealDB does not provide nutrition data.
+                fat=0        # Placeholder: TheMealDB does not provide nutrition data.
             ),
             source_api="mealdb",
             original_data=data

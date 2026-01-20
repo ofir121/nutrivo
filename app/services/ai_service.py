@@ -151,4 +151,17 @@ Now extract from: "{query}"
             logger.error(f"Batch processing failed: {e}")
             return {}
 
+    def batch_estimate_preparation_time(self, recipes: Dict[str, Dict[str, Any]]) -> Dict[str, int]:
+        """
+        Estimate preparation times for multiple recipes without LLM usage.
+        """
+        from app.utils.time_estimator import estimate_prep_time
+
+        estimates: Dict[str, int] = {}
+        for rid, payload in recipes.items():
+            ingredients = payload.get("ingredients", []) if isinstance(payload, dict) else []
+            instructions = payload.get("instructions", "") if isinstance(payload, dict) else ""
+            estimates[rid] = estimate_prep_time(ingredients, instructions)
+        return estimates
+
 ai_service = AIService()

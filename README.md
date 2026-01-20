@@ -84,6 +84,12 @@ Meal plans are limited to 1-7 days. Requests for more than 7 days return a 400 e
 - **Planner Flow**: Parser (rules + conditional LLM) -> conflict resolver -> retrieve -> score -> greedy plan -> response.
 - **LLM Usage Policy**: Default is 0 calls for typical queries; the parser only calls the LLM when the query is ambiguous.
 
+## Limitations
+- **Nutrition accuracy**: TheMealDB does not provide nutrition; values are placeholders for demo purposes.
+- **External filtering**: TheMealDB has limited filtering, so diet compliance is best-effort for that source.
+- **LLM optionality**: If `OPENAI_API_KEY` is missing, parsing falls back to rules-only extraction.
+- **In-memory safeguards**: Rate limiting and caching are in-memory only; they reset on restart and are per-process.
+
 ## Future Improvements
 - **LLM Integration**: Further enhance LLM usage for more complex reasoning.
 - **Optimization**: Add constraint satisfaction algorithms (CSP) to better optimize nutrition and variety.

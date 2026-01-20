@@ -5,7 +5,7 @@ from app.services.sources.base import RecipeSource
 from app.models import Recipe, NutritionalInfo
 from app.core.rules import DIET_DEFINITIONS, INGREDIENT_SYNONYMS
 from app.core.logging_config import get_logger
-from app.utils.time_estimator import estimate_prep_time
+from app.utils.time_estimator import estimate_prep_time as estimate_prep_time_fn
 
 logger = get_logger(__name__)
 
@@ -26,7 +26,13 @@ class LocalSource(RecipeSource):
             logger.error(f"Error decoding {file_path}")
             return []
 
-    def get_recipes(self, diets: List[str], exclude: List[str], meal_type: Optional[str]) -> List[Recipe]:
+    def get_recipes(
+        self,
+        diets: List[str],
+        exclude: List[str],
+        meal_type: Optional[str],
+        estimate_prep_time: bool = True
+    ) -> List[Recipe]:
         """
         Filters the Spoonacular-formatted local data and adapts it to our canonical Recipe model.
         """
@@ -71,16 +77,36 @@ class LocalSource(RecipeSource):
 
         # 4. Time Estimation
         time_estimates = {}
+        missing_time_payload = {}
         for r in filtered_data:
+            if r.get("readyInMinutes", 0) > 0:
+                continue
             recipe_id = str(r.get("id"))
-            if r.get("readyInMinutes", 0) <= 0:
-                steps = []
-                if r.get("analyzedInstructions"):
-                    for section in r["analyzedInstructions"]:
-                        for step in section.get("steps", []):
-                            steps.append(step.get("step", ""))
-                ingredients = [i.get("original") for i in r.get("extendedIngredients", [])]
-                time_estimates[recipe_id] = estimate_prep_time(ingredients, steps)
+            steps = []
+            if r.get("analyzedInstructions"):
+                for section in r["analyzedInstructions"]:
+                    for step in section.get("steps", []):
+                        steps.append(step.get("step", ""))
+            ingredients = [i.get("original") for i in r.get("extendedIngredients", [])]
+            if estimate_prep_time:
+                missing_time_payload[recipe_id] = {
+                    "ingredients": ingredients,
+                    "instructions": steps
+                }
+            else:
+                time_estimates[recipe_id] = estimate_prep_time_fn(ingredients, steps)
+
+        if missing_time_payload:
+            try:
+                from app.services.ai_service import ai_service
+                time_estimates.update(ai_service.batch_estimate_preparation_time(missing_time_payload))
+            except Exception as exc:
+                logger.warning(f"Batch time estimation failed; using heuristic fallback. Error: {exc}")
+                for recipe_id, payload in missing_time_payload.items():
+                    time_estimates[recipe_id] = estimate_prep_time_fn(
+                        payload.get("ingredients", []),
+                        payload.get("instructions", [])
+                    )
 
         # 5. Adapt to Canonical Model with estimates
         return [self._adapt(r, time_estimates) for r in filtered_data]

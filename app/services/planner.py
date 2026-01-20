@@ -44,6 +44,7 @@ class MealPlanner:
         today = datetime.now().date()
         prev_day_ingredient_tokens = set()
         prev_day_dish_types = set()
+        recent_recipe_history = []
         
         for day_offset in range(parsed.days):
              current_date = (today + timedelta(days=day_offset + 1)).isoformat()
@@ -55,6 +56,8 @@ class MealPlanner:
              if parsed.meals_per_day > 3:
                  meal_types.append("snack")
              
+             recent_ids = set().union(*recent_recipe_history) if recent_recipe_history else set()
+
              # Try to find a recipe for each type: breakfast, lunch, dinner
              for m_type in meal_types:
                  
@@ -90,7 +93,12 @@ class MealPlanner:
                  
                  # Fallback: if we ran out of unique recipes, reuse from candidates
                  if not recipe:
-                     fallback_pool = [r for r in candidates if r.id not in used_today]
+                     fallback_pool = [
+                         r for r in candidates
+                         if r.id not in used_today and r.id not in recent_ids
+                     ]
+                     if not fallback_pool:
+                         fallback_pool = [r for r in candidates if r.id not in used_today]
                      if not fallback_pool:
                          fallback_pool = candidates
                      recipe = self._pick_best_recipe(fallback_pool, parsed, context)
@@ -101,7 +109,7 @@ class MealPlanner:
                      used_recipes.add(recipe.id)
                      used_today.add(recipe.id)
                      
-                     # Create Meal with raw instructions initially
+                     # Create Meal with formatted instructions
                      meal = Meal(
                          meal_type=m_type,
                          recipe_name=recipe.title,
@@ -109,7 +117,7 @@ class MealPlanner:
                          ingredients=recipe.ingredients,
                          nutritional_info=recipe.nutrition,
                          preparation_time=f"{recipe.ready_in_minutes} mins",
-                         instructions=recipe.instructions,
+                         instructions=self._format_instructions(recipe.instructions),
                          source=f"{recipe.source_api}"
                      )
                      daily_meals.append(meal)
@@ -127,6 +135,9 @@ class MealPlanner:
              ))
              prev_day_ingredient_tokens = day_ingredient_tokens
              prev_day_dish_types = day_dish_types
+             if used_today:
+                 recent_recipe_history.append(list(used_today))
+                 recent_recipe_history = recent_recipe_history[-2:]
 
         # 5. Create Summary (Recalculate stats after AI updates)
         total_meals_count = 0
@@ -154,13 +165,8 @@ class MealPlanner:
         summary = MealPlanSummary(
             total_meals=total_meals_count,
             dietary_compliance=combined_preferences,
-            diets=parsed.diets,
-            exclusions=parsed.exclude,
-            preferences=combined_preferences,
             estimated_cost="$45-60",  # Mocked for now
-            avg_prep_time=avg_prep,
-            warnings=warnings,
-            defaults_applied=defaults_applied
+            avg_prep_time=avg_prep
         )
 
         total_time = time.time() - total_start
@@ -170,8 +176,6 @@ class MealPlanner:
             meal_plan_id=str(uuid.uuid4()),
             duration_days=parsed.days,
             generated_at=datetime.now().isoformat(),
-            clarified_intent=parsed.clarified_intent,
-            preferences=combined_preferences,
             meal_plan=meal_plan,
             summary=summary
         )
@@ -206,6 +210,14 @@ class MealPlanner:
                 if minutes.isdigit():
                     return int(minutes)
         return None
+
+    def _format_instructions(self, instructions):
+        """Normalize recipe instructions into a single string."""
+        if not instructions:
+            return ""
+        if isinstance(instructions, list):
+            return "\n".join(step for step in instructions if step)
+        return str(instructions)
 
 
 planner = MealPlanner()

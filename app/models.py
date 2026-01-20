@@ -47,7 +47,7 @@ class Meal(BaseModel):
     ingredients: List[str]
     nutritional_info: NutritionalInfo
     preparation_time: str
-    instructions: List[str]
+    instructions: str
     source: str
 
 class DailyPlan(BaseModel):
@@ -58,19 +58,12 @@ class DailyPlan(BaseModel):
 class MealPlanSummary(BaseModel):
     total_meals: int
     dietary_compliance: List[str] = Field(default_factory=list)
-    diets: List[str] = Field(default_factory=list)  # e.g., ["vegetarian", "vegan"]
-    exclusions: List[str] = Field(default_factory=list)  # e.g., ["peanuts", "shellfish"]
-    preferences: List[str] = Field(default_factory=list)  # e.g., ["high-protein", "low-carb"]
     estimated_cost: str
     avg_prep_time: str
-    warnings: List[str] = Field(default_factory=list)
-    defaults_applied: List[str] = Field(default_factory=list)
 
 class MealPlanResponse(BaseModel):
     meal_plan_id: str
     duration_days: int
     generated_at: str
-    clarified_intent: Optional[str] = None  # How the AI interpreted the query
-    preferences: List[str] = Field(default_factory=list)  # Extracted preferences like "high-protein", "low-carb"
     meal_plan: List[DailyPlan]
     summary: MealPlanSummary

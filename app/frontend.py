@@ -46,21 +46,6 @@ if st.button("Generate Plan", type="primary"):
                     # summary section
                     st.success("Plan generated successfully!")
                     
-                    # Display AI's interpretation
-                    if data.get("clarified_intent"):
-                        st.info(f"🤖 **AI Interpretation:** {data['clarified_intent']}")
-                    
-                    # Display Preferences
-                    if data.get("preferences"):
-                        prefs_html = " ".join([
-                            f'<span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); '
-                            f'color: white; padding: 4px 12px; border-radius: 20px; margin-right: 8px; '
-                            f'font-size: 0.9em; font-weight: 500;">{pref}</span>'
-                            for pref in data["preferences"]
-                        ])
-                        st.markdown(f"**✨ Preferences:** {prefs_html}", unsafe_allow_html=True)
-                        st.markdown("")  # Add spacing
-                    
                     col1, col2, col3 = st.columns(3)
                     with col1:
                         st.metric("Total Meals", data["summary"]["total_meals"])
@@ -69,25 +54,15 @@ if st.button("Generate Plan", type="primary"):
                     with col3:
                         st.metric("Avg Prep Time", data["summary"]["avg_prep_time"])
                     
-                    # Display Diets
-                    if data["summary"].get("diets"):
-                        diets_html = " ".join([
+                    # Display Dietary Compliance
+                    if data["summary"].get("dietary_compliance"):
+                        compliance_html = " ".join([
                             f'<span style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); '
                             f'color: white; padding: 4px 12px; border-radius: 20px; margin-right: 8px; '
-                            f'font-size: 0.9em; font-weight: 500;">{diet}</span>'
-                            for diet in data["summary"]["diets"]
+                            f'font-size: 0.9em; font-weight: 500;">{item}</span>'
+                            for item in data["summary"]["dietary_compliance"]
                         ])
-                        st.markdown(f"**🥗 Diets:** {diets_html}", unsafe_allow_html=True)
-                    
-                    # Display Exclusions
-                    if data["summary"].get("exclusions"):
-                        excl_html = " ".join([
-                            f'<span style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); '
-                            f'color: white; padding: 4px 12px; border-radius: 20px; margin-right: 8px; '
-                            f'font-size: 0.9em; font-weight: 500;">No {excl}</span>'
-                            for excl in data["summary"]["exclusions"]
-                        ])
-                        st.markdown(f"**🚫 Exclusions:** {excl_html}", unsafe_allow_html=True)
+                        st.markdown(f"**🥗 Dietary Compliance:** {compliance_html}", unsafe_allow_html=True)
 
                     # Detailed Plan
                     st.divider()
@@ -121,7 +96,12 @@ if st.button("Generate Plan", type="primary"):
                                         st.markdown(f"- {ing}")
                                 with c2:
                                     st.markdown("**Instructions**")
-                                    for i, step in enumerate(meal['instructions'], 1):
+                                    instructions = meal.get("instructions", "")
+                                    if isinstance(instructions, list):
+                                        steps = instructions
+                                    else:
+                                        steps = [s for s in instructions.split("\n") if s]
+                                    for i, step in enumerate(steps, 1):
                                         st.markdown(f"{i}. {step}")
                                 st.divider()
 
