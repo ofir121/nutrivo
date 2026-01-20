@@ -74,6 +74,9 @@ Interactive documentation (Swagger UI) is available at:
 }
 ```
 
+### Duration Limits
+Meal plans are limited to 1-7 days. Requests for more than 7 days return a 400 error with guidance to request 7 days or fewer.
+
 ## Design Decisions & Trade-offs
 - **FastAPI**: Chosen for speed and built-in validation (Pydantic).
 - **Hybrid Recipe Sourcing**: Combines a local mock database for speed/reliability with TheMealDB for variety.

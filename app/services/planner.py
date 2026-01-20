@@ -153,6 +153,7 @@ class MealPlanner:
         
         summary = MealPlanSummary(
             total_meals=total_meals_count,
+            dietary_compliance=combined_preferences,
             diets=parsed.diets,
             exclusions=parsed.exclude,
             preferences=combined_preferences,
