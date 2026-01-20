@@ -95,7 +95,23 @@ if st.button("Generate Plan", type="primary"):
                         with st.expander(f"Day {day['day']} - {day['date']}", expanded=True):
                             for meal in day["meals"]:
                                 st.markdown(f"### {meal['meal_type'].title()}: {meal['recipe_name']}")
-                                st.caption(f"{meal['nutritional_info']['calories']} kcal | Prep: {meal['preparation_time']}")
+                                nutrition = meal.get("nutritional_info", {})
+                                protein = nutrition.get("protein", 0)
+                                carbs = nutrition.get("carbs", 0)
+                                fat = nutrition.get("fat", 0)
+                                macro_total = protein + carbs + fat
+                                if macro_total > 0:
+                                    protein_pct = round((protein / macro_total) * 100)
+                                    carbs_pct = round((carbs / macro_total) * 100)
+                                    fat_pct = round((fat / macro_total) * 100)
+                                else:
+                                    protein_pct = carbs_pct = fat_pct = 0
+                                st.caption(
+                                    f"{nutrition.get('calories', 0)} kcal | Prep: {meal['preparation_time']} | "
+                                    f"Protein {protein}g ({protein_pct}%), "
+                                    f"Carbs {carbs}g ({carbs_pct}%), "
+                                    f"Fat {fat}g ({fat_pct}%)"
+                                )
                                 st.write(meal['description'])
                                 
                                 c1, c2 = st.columns(2)

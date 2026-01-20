@@ -25,6 +25,8 @@ class TestParserService:
         diets = parser_service._extract_diets("vegan and gluten-free")
         assert "vegan" in diets
         assert "gluten-free" in diets
+        diets = parser_service._extract_diets("need gluten free options")
+        assert "gluten-free" in diets
         diets = parser_service._extract_diets("kosher mediterranean dash plan")
         assert "kosher" in diets
         assert "mediterranean" in diets
@@ -42,12 +44,20 @@ class TestParserService:
         """Test extraction of -free patterns."""
         exclusions = parser_service._extract_exclusions("gluten-free")
         assert "gluten" in exclusions
+        exclusions = parser_service._extract_exclusions("gluten free")
+        assert "gluten" in exclusions
         
         exclusions = parser_service._extract_exclusions("dairy-free")
         assert "dairy" in exclusions
 
         exclusions = parser_service._extract_exclusions("soy-free")
         assert "soy" in exclusions
+        
+        exclusions = parser_service._extract_exclusions("egg-free")
+        assert "egg" in exclusions
+
+        exclusions = parser_service._extract_exclusions("nuts free")
+        assert "nut" in exclusions
 
     def test_extract_calories(self, parser_service):
         """Test calorie extraction."""

@@ -114,7 +114,11 @@ class QueryParser:
         # Collect all matches
         found_diets = []
         for diet in DIET_DEFINITIONS.keys():
-            if diet in text:
+            if "-" in diet:
+                pattern = r'\b' + r'[- ]?'.join(map(re.escape, diet.split("-"))) + r'\b'
+            else:
+                pattern = rf'\b{re.escape(diet)}\b'
+            if re.search(pattern, text):
                 found_diets.append(diet)
         return found_diets
 
@@ -140,13 +144,11 @@ class QueryParser:
         
         # Also check for "-free" patterns like "gluten-free" -> exclude gluten
         # This is slightly overlapping with diet types, but "gluten-free" is both a diet and an exclusion.
-        free_matches = re.findall(r'([a-z]+)-free', text)
+        free_matches = re.findall(r'\b([a-z]+)[- ]?free\b', text)
         for match in free_matches:
-            if match == "gluten": exclusions.add("gluten") # explicit handling?
-            if match == "dairy": exclusions.add("dairy")
-            if match == "nut": exclusions.add("nut")
-            if match == "soy": exclusions.add("soy")
-            if match == "sugar": exclusions.add("sugar")
+            key = normalize_token(match)
+            if key in INGREDIENT_SYNONYMS:
+                exclusions.add(key)
         
         return list(exclusions)
 
