@@ -5,6 +5,8 @@ from app.models import ParsedQuery, Recipe
 PREFERENCE_QUICK = "quick"
 PREFERENCE_HIGH_PROTEIN = "high-protein"
 PREFERENCE_LOW_CARB = "low-carb"
+PREFERENCE_LOW_FAT = "low-fat"
+PREFERENCE_LOW_SODIUM = "low-sodium"
 PREFERENCE_BUDGET = "budget-friendly"
 
 
@@ -50,6 +52,16 @@ def score_recipe(recipe: Recipe, parsed: ParsedQuery, context: Dict[str, object]
         score += min(2.5, (recipe.nutrition.protein or 0) / 20.0)
     if PREFERENCE_LOW_CARB in preferences:
         score -= min(2.5, (recipe.nutrition.carbs or 0) / 20.0)
+    if PREFERENCE_LOW_FAT in preferences:
+        score -= min(2.0, (recipe.nutrition.fat or 0) / 15.0)
+
+    if PREFERENCE_LOW_SODIUM in preferences:
+        sodium_keywords = [
+            "salt", "soy sauce", "bacon", "ham", "sausage", "pepperoni",
+            "salami", "pickles", "anchovy", "anchovies", "olives"
+        ]
+        sodium_hits = sum(1 for keyword in sodium_keywords if keyword in recipe_text)
+        score -= min(1.5, sodium_hits * 0.4)
 
     # Time alignment: penalize slow recipes when "quick" is requested.
     quick_threshold = _extract_quick_threshold(preferences)

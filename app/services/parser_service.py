@@ -145,6 +145,7 @@ class QueryParser:
             if match == "gluten": exclusions.add("gluten") # explicit handling?
             if match == "dairy": exclusions.add("dairy")
             if match == "nut": exclusions.add("nut")
+            if match == "soy": exclusions.add("soy")
             if match == "sugar": exclusions.add("sugar")
         
         return list(exclusions)
@@ -179,6 +180,10 @@ class QueryParser:
             preferences.add("high-protein")
         if re.search(r'\blow[- ]carb\b', text):
             preferences.add("low-carb")
+        if re.search(r'\blow[- ]fat\b', text):
+            preferences.add("low-fat")
+        if re.search(r'\blow[- ]sodium\b', text):
+            preferences.add("low-sodium")
         if re.search(r'\bbudget(-friendly)?\b', text):
             preferences.add("budget-friendly")
         if re.search(r'\bquick\b|\bfast\b', text) and not meal_specific_quick:

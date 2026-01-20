@@ -25,6 +25,10 @@ class TestParserService:
         diets = parser_service._extract_diets("vegan and gluten-free")
         assert "vegan" in diets
         assert "gluten-free" in diets
+        diets = parser_service._extract_diets("kosher mediterranean dash plan")
+        assert "kosher" in diets
+        assert "mediterranean" in diets
+        assert "dash" in diets
 
     def test_extract_exclusions_explicit(self, parser_service):
         """Test extraction of explicit exclusions."""
@@ -42,6 +46,9 @@ class TestParserService:
         exclusions = parser_service._extract_exclusions("dairy-free")
         assert "dairy" in exclusions
 
+        exclusions = parser_service._extract_exclusions("soy-free")
+        assert "soy" in exclusions
+
     def test_extract_calories(self, parser_service):
         """Test calorie extraction."""
         assert parser_service._extract_calories("2000 calories") == 2000
@@ -56,10 +63,12 @@ class TestParserService:
     def test_extract_preferences_rules(self, parser_service):
         """Test preference extraction rules."""
         prefs = parser_service._extract_preferences(
-            "Need a high-protein, low carb, budget-friendly plan under 15 minutes"
+            "Need a high-protein, low carb, low-fat, low-sodium, budget-friendly plan under 15 minutes"
         )
         assert "high-protein" in prefs
         assert "low-carb" in prefs
+        assert "low-fat" in prefs
+        assert "low-sodium" in prefs
         assert "budget-friendly" in prefs
         assert "quick" in prefs
         assert "under-15-minutes" in prefs

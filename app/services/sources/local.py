@@ -61,7 +61,7 @@ class LocalSource(RecipeSource):
              
              filtered_data = [
                  r for r in filtered_data 
-                 if self._matches_diet(r.get("diets", []), diet)
+                 if self._matches_diet(r.get("diets", []), diet) or self._matches_diet_rules(r, diet)
              ]
              # Enforce diet rules against ingredients (in case diet tags are wrong/missing).
              filtered_data = [
@@ -95,8 +95,15 @@ class LocalSource(RecipeSource):
         
         # 2. Hierarchy (Vegan implies Vegetarian)
         if req == "vegetarian" and "vegan" in r_diets: return True
+        if req == "keto" and "ketogenic" in r_diets: return True
+        if req == "low carb" and "low carb" in r_diets: return True
         
         return False
+
+    def _matches_diet_rules(self, recipe: dict, diet: str) -> bool:
+        if diet not in DIET_DEFINITIONS:
+            return False
+        return not self._violates_diet(recipe, diet)
 
     def _matches_meal_type(self, dish_types: List[str], req_type: str) -> bool:
         # Simple string match

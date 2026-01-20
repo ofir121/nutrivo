@@ -15,10 +15,26 @@ DIET_DEFINITIONS: Dict[str, Dict[str, List[str]]] = {
         "forbidden_ingredients": ["meat", "chicken", "beef", "pork"],
         "forbidden_tags": ["meat", "chicken"]
     },
+    "dairy-free": {
+        "forbidden_ingredients": ["milk", "cheese", "butter", "cream", "yogurt", "whey", "casein", "ghee"],
+        "forbidden_tags": ["dairy"]
+    },
+    "nut-free": {
+        "forbidden_ingredients": ["nut", "almond", "peanut", "cashew", "walnut", "pecan", "pistachio", "hazelnut"],
+        "forbidden_tags": ["nuts"]
+    },
+    "soy-free": {
+        "forbidden_ingredients": ["soy", "tofu", "tempeh", "edamame", "soy sauce", "tamari", "miso"],
+        "forbidden_tags": ["soy"]
+    },
     "gluten-free": {
         "forbidden_ingredients": ["wheat", "flour", "barley", "rye", "bread", "pasta", "soy sauce"],
         "allowed_exceptions": ["gluten-free", "gf"], # e.g. "gluten-free pasta" is ok
         "forbidden_tags": ["gluten"]
+    },
+    "low-carb": {
+        "forbidden_ingredients": ["sugar", "bread", "pasta", "rice", "potato", "corn", "flour", "tortilla"],
+        "forbidden_tags": ["high-carb"]
     },
     "keto": {
         "forbidden_ingredients": ["sugar", "bread", "pasta", "rice", "potato", "corn", "flour"],
@@ -26,6 +42,22 @@ DIET_DEFINITIONS: Dict[str, Dict[str, List[str]]] = {
     },
      "paleo": {
         "forbidden_ingredients": ["sugar", "dairy", "cheese", "milk", "butter", "bean", "legume", "grain", "rice", "bread", "pasta"],
+        "forbidden_tags": ["processed"]
+    },
+    "halal": {
+        "forbidden_ingredients": ["pork", "bacon", "ham", "lard", "gelatin", "wine", "beer", "rum", "vodka", "whiskey", "whisky", "brandy"],
+        "forbidden_tags": ["pork", "alcohol"]
+    },
+    "kosher": {
+        "forbidden_ingredients": ["pork", "bacon", "ham", "lard", "gelatin", "shrimp", "crab", "lobster", "clam", "mussel", "oyster", "squid", "octopus"],
+        "forbidden_tags": ["shellfish", "pork"]
+    },
+    "mediterranean": {
+        "forbidden_ingredients": ["bacon", "sausage", "pepperoni", "salami", "hot dog", "lard", "shortening"],
+        "forbidden_tags": ["processed"]
+    },
+    "dash": {
+        "forbidden_ingredients": ["bacon", "ham", "sausage", "hot dog", "pepperoni", "salami", "processed", "deli", "pickles", "soy sauce"],
         "forbidden_tags": ["processed"]
     }
 }
