@@ -1,110 +1,87 @@
 # AI-Powered Personalized Meal Planner
 
-A production-ready REST API that generates personalized, multi-day meal plans based on natural language user queries.
+A production-ready REST API that turns natural language requests into multi-day meal plans with recipes, nutrition, and summaries.
 
 ## Problem Understanding
-The goal is to simplify meal planning by converting natural language requests (e.g., "5-day vegetarian plan") into structured, nutritional meal plans. This solves the "what's for dinner?" problem while catering to specific dietary needs and constraints.
+Meal planning is a high-friction task: people describe goals in natural language (diet type, exclusions, prep time, budget), but need a structured, realistic plan. This project bridges that gap by parsing free-form queries into constraints and generating a balanced plan that is practical to cook and easy to review.
 
 ## Architecture Overview
-- **Framework**: FastAPI (Python) for high-performance async API capabilities.
-- **Service Layer**:
-  - `LLMService`: Optional LLM enhancement for ambiguous queries and batch time estimation.
-  - `RecipeService`: Aggregates recipes from TheMealDB API and a local mock database.
-  - `MealPlanner`: Orchestrates the logic to assemble daily plans with deterministic scoring and greedy selection.
-- **Data**: Hybrid approach using external API (MealDB) and local JSON.
+- **API layer (FastAPI)**: `app/main.py` exposes `POST /api/generate-meal-plan` and provides rate limiting, request logging, and error handling via `MealPlanRequest`/`MealPlanResponse` models in `app/models.py`.
+- **Query parsing**: `app/services/parser_service.py` extracts duration, diets, exclusions, and preferences with deterministic rules and optionally enhances ambiguous queries using OpenAI via `app/services/ai_service.py`.
+- **Conflict resolution**: `app/services/conflict_resolver.py` rejects impossible requests (e.g., conflicting diets, >7 days) early with clear error messages.
+- **Recipe sourcing**: `app/services/recipe_service.py` aggregates from:
+  - `Local` source backed by `data/mock_recipes.json`
+  - `TheMealDB` remote API via `app/services/sources/mealdb.py`
+  Results are cached in memory with a short TTL.
+- **Nutrition and timing**:
+  - Local recipes use embedded nutrition; optional USDA lookup enriches nutrition via `app/services/usda_service.py` and `app/services/nutrition_calculator.py`.
+  - Prep time is estimated when missing using `app/utils/time_estimator.py`.
+- **Planning and scoring**: `app/services/planner.py` assembles a daily plan using deterministic scoring (`app/services/scoring.py`), diversity penalties, and macro balance heuristics.
+- **Optional UI**: `app/frontend.py` provides a Streamlit interface for demo and exploration.
 
-## Setup & Installation
-
+## Setup and Installation
 ### Prerequisites
 - Python 3.9+
 - pip
 
-### Steps
-1. Clone the repository:
-   ```bash
-   git clone <repo-url>
-   cd nutrivo
-   ```
-
+### Local setup
+1. Create a virtual environment (recommended).
 2. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
-
-3. Configure Environment:
+3. Configure environment variables:
    ```bash
    cp .env.example .env
-   # Edit .env and add your OPENAI_API_KEY
+   # Add OPENAI_API_KEY and/or USDA_API_KEY if you want enhanced parsing/nutrition
    ```
-   Optional:
-   - Add `USDA_API_KEY` to enable nutrition enrichment from USDA FoodData Central.
 
-## Running the Application
-
-### Quick Start (Recommended)
-Run both the backend and frontend simultaneously with a single command:
+## How to Run the API
+### Quick start (API + UI)
 ```bash
 python run.py
 ```
-This script will start the FastAPI backend (port 8000) and the Streamlit frontend (port 8501).
+- API: `http://127.0.0.1:8000`
+- Docs: `http://127.0.0.1:8000/docs`
+- UI: `http://127.0.0.1:8501`
 
-### Manual Setup
-If you prefer to run services separately:
-
-#### 1. Start the Backend
-Start the FastAPI server:
+### API only
 ```bash
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --port 8000
 ```
-The API will be available at `http://127.0.0.1:8000`.
 
-#### 2. Start the Frontend
-In a new terminal window, start the Streamlit app:
+### Docker
 ```bash
-streamlit run app/frontend.py
-```
-The UI will open in your browser at `http://localhost:8501`.
-## API Documentation
-Interactive documentation (Swagger UI) is available at:
-`http://127.0.0.1:8000/docs`
-
-### Sample Request
-**POST** `/api/generate-meal-plan`
-```json
-{
-  "query": "Create a 3-day vegetarian meal plan"
-}
+docker build -t nutrivo .
+docker run -p 8000:8000 -p 8501:8501 nutrivo
 ```
 
-### Optional Extensions
-The API supports a few optional extensions for demos:
-- `sources`: array of recipe sources to use (e.g., `["Local", "TheMealDB"]`)
+### Example request
+```bash
+curl -X POST http://127.0.0.1:8000/api/generate-meal-plan \
+  -H "Content-Type: application/json" \
+  -d '{"query":"Create a 3-day vegetarian meal plan","sources":["Local","TheMealDB"]}'
+```
 
+## Design Decisions and Trade-offs
+- **Rule-based parsing with LLM fallback**: Rules provide speed, determinism, and zero cost; the LLM is only used when the query is ambiguous. Trade-off: complex or novel phrasing may still miss intent without a key.
+- **Hybrid recipe sourcing**: Local data ensures reliability and filtering control; TheMealDB adds variety. Trade-off: external data has limited dietary metadata and requires best-effort filtering.
+- **Deterministic scoring and greedy selection**: Fast and explainable, with penalties for repetition and macro imbalance. Trade-off: not globally optimal compared to CSP or ILP approaches.
+- **In-memory cache and rate limits**: Simple and effective for the take-home scope. Trade-off: resets on restart and does not scale across processes.
+- **Nutrition enrichment via USDA**: Improves accuracy when keys are available. Trade-off: ingredient parsing is heuristic and external lookups can be slow or incomplete.
 
-### Duration Limits
-Meal plans are limited to 1-7 days. Requests for more than 7 days return a 400 error with guidance to request 7 days or fewer.
-
-## Design Decisions & Trade-offs
-- **FastAPI**: Chosen for speed and built-in validation (Pydantic).
-- **Hybrid Recipe Sourcing**: Combines a local mock database for speed/reliability with TheMealDB for variety.
-- **Hybrid Parsing**: Uses a lightweight regex parser for speed and rule-based preferences, with conditional LLM enrichment only for ambiguous queries.
-- **Planner Flow**: Parser (rules + conditional LLM) -> conflict resolver -> retrieve -> score -> greedy plan -> response.
-- **LLM Usage Policy**: Default is 0 calls for typical queries; the parser only calls the LLM when the query is ambiguous.
-- **Nutrition Enrichment**: When `USDA_API_KEY` is set, local recipes are enriched using USDA FoodData Central.
-
-## Limitations
-- **Nutrition accuracy**: TheMealDB does not provide nutrition; values are placeholders for demo purposes.
-- **External filtering**: TheMealDB has limited filtering, so diet compliance is best-effort for that source.
-- **LLM optionality**: If `OPENAI_API_KEY` is missing, parsing falls back to rules-only extraction.
-- **In-memory safeguards**: Rate limiting and caching are in-memory only; they reset on restart and are per-process.
-- **USDA matching**: Ingredient matching is heuristic and may be approximate.
-
-## Cost/Usage Notes
-- LLM usage is optional and only triggered for ambiguous queries.
-- Local recipes are preferred by default; external calls are limited and cached.
-- USDA lookups are cached locally in `data/usda_cache.json`.
+## Known Limitations
+- **Nutrition accuracy**: TheMealDB lacks nutrition data; values may be placeholders unless USDA enrichment succeeds.
+- **Diet compliance with external data**: TheMealDB has limited filtering, so compliance is best-effort.
+- **Static cost estimate**: `estimated_cost` is a fixed placeholder value.
+- **No persistent user state**: Preferences are not stored; there is no auth or profile history.
+- **Rate limiting and caching are per-process**: They reset on restart and are not distributed.
+- **Plan dates**: Dates start from the next day using local server time.
+- **Dataset size**: The local recipe set is finite, so repetition can still occur for long plans.
 
 ## Future Improvements
-- **LLM Integration**: Further enhance LLM usage for more complex reasoning.
-- **Optimization**: Add constraint satisfaction algorithms (CSP) to better optimize nutrition and variety.
-- **User Profiles**: Store user preferences to improve personalization over time.
+- Replace greedy planning with a constraint solver for stronger nutrition and diversity optimization.
+- Add persistent user profiles and history to personalize plans over time.
+- Improve cost estimation using ingredient pricing data.
+- Expand sources (e.g., Spoonacular) and add richer metadata normalization.
+- Add comprehensive tests around nutrition parsing and diet rule coverage.
