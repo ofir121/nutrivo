@@ -3,11 +3,25 @@ import requests
 import json
 import os
 
+try:
+    from app.ui.documentation import render_documentation
+except ModuleNotFoundError:
+    from ui.documentation import render_documentation
+
 # Configuration
 API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/api/generate-meal-plan")
 API_DOCS_URL = os.getenv("API_DOCS_URL", "http://127.0.0.1:8000/docs")
 
 st.set_page_config(page_title="AI Meal Planner", layout="wide")
+
+def rerun_app() -> None:
+    try:
+        st.rerun()
+    except AttributeError:
+        st.experimental_rerun()
+
+if "page" not in st.session_state:
+    st.session_state["page"] = "home"
 
 col1, col2, col3 = st.columns([1, 4, 1])
 with col1:
@@ -16,6 +30,17 @@ with col2:
     st.title("AI-Powered Personal Meal Planner")
 with col3:
     st.link_button("API Docs", API_DOCS_URL, type="secondary", use_container_width=True)
+    if st.button("📚 Documentation", type="secondary", use_container_width=True):
+        st.session_state["page"] = "docs"
+        rerun_app()
+
+if st.session_state["page"] == "docs":
+    if st.button("← Back to Planner", type="secondary"):
+        st.session_state["page"] = "home"
+        rerun_app()
+    render_documentation()
+    st.stop()
+
 st.markdown("""
 Welcome! Describe your ideal meal plan, and I'll generate a schedule for you.
 
