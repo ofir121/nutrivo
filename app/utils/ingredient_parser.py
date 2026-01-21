@@ -33,6 +33,8 @@ UNIT_TO_GRAMS = {
     "tablespoons": 15.0,
     "cup": 240.0,
     "cups": 240.0,
+    "clove": 3.0,
+    "cloves": 3.0,
 }
 
 
