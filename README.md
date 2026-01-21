@@ -8,6 +8,15 @@ Live app: https://nutrivo-s873.onrender.com/
 
 <img src="app/static/assets/nutrivo_logo.png" alt="Nutrivo logo" width="220">
 
+<img src="app/static/assets/home_screenshot.png" alt="Home screen" width="900">
+
+<table>
+  <tr>
+    <td><img src="app/static/assets/recipe_screenshot.png" alt="Recipe screen" width="440"></td>
+    <td><img src="app/static/assets/json_screenshot.png" alt="JSON response screen" width="440"></td>
+  </tr>
+</table>
+
 ## Features
 - Natural-language meal planning via `POST /api/generate-meal-plan`.
 - Rules-first parser with optional LLM enhancement for ambiguous queries.
