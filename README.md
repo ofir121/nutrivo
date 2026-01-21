@@ -2,30 +2,58 @@
 
 A production-ready REST API that turns natural language requests into multi-day meal plans with recipes, nutrition, and summaries.
 
-## Problem Understanding
-Meal planning is a high-friction task: people describe goals in natural language (diet type, exclusions, prep time, budget), but need a structured, realistic plan. This project bridges that gap by parsing free-form queries into constraints and generating a balanced plan that is practical to cook and easy to review.
+## ✨ At a Glance
+- ✅ `POST /api/generate-meal-plan` for natural language meal planning
+- 🧠 Rules-first parsing with optional LLM fallback for ambiguous queries
+- 🧺 Hybrid recipe sources: local JSON + TheMealDB
+- 🥗 Nutrition support with optional USDA enrichment
+- 🖥️ Optional Streamlit UI for demos
 
-## Architecture Overview
-- **API layer (FastAPI)**: `app/main.py` exposes `POST /api/generate-meal-plan` and provides rate limiting, request logging, and error handling via `MealPlanRequest`/`MealPlanResponse` models in `app/models.py`.
-- **Query parsing**: `app/services/parser_service.py` extracts duration, diets, exclusions, and preferences with deterministic rules and optionally enhances ambiguous queries using OpenAI via `app/services/ai_service.py`.
-- **Conflict resolution**: `app/services/conflict_resolver.py` rejects impossible requests (e.g., conflicting diets, >7 days) early with clear error messages.
+## 🧭 Table of Contents
+- Problem Understanding
+- Architecture Overview
+- Setup and Installation
+- How to Run the API
+- API Usage (Request + Response Example)
+- Testing
+- Design Decisions and Trade-offs
+- Known Limitations
+- Future Improvements
+
+## 🧠 Problem Understanding
+Meal planning is a high-friction task: people describe goals in natural language (diet type, exclusions, prep time, budget),
+but need a structured, realistic plan. This project bridges that gap by parsing free-form queries into constraints and
+producing balanced meal plans that are practical to cook and easy to review.
+
+## 🏗️ Architecture Overview
+- **API layer (FastAPI)**: `app/main.py` exposes `POST /api/generate-meal-plan` with rate limiting, request logging, and
+  Pydantic validation using `app/models.py`.
+- **Query parsing**: `app/services/parser_service.py` extracts duration, diets, exclusions, and preferences using
+  deterministic rules and (optionally) `app/services/ai_service.py` for ambiguous queries.
+- **Conflict resolution**: `app/services/conflict_resolver.py` rejects invalid requests (e.g., conflicting diets, >7 days).
 - **Recipe sourcing**: `app/services/recipe_service.py` aggregates from:
   - `Local` source backed by `data/mock_recipes.json`
-  - `TheMealDB` remote API via `app/services/sources/mealdb.py`
+  - `TheMealDB` via `app/services/sources/mealdb.py`
   Results are cached in memory with a short TTL.
 - **Nutrition and timing**:
-  - Local recipes use embedded nutrition; optional USDA lookup enriches nutrition via `app/services/usda_service.py` and `app/services/nutrition_calculator.py`.
-  - Prep time is estimated when missing using `app/utils/time_estimator.py`.
-- **Planning and scoring**: `app/services/planner.py` assembles a daily plan using deterministic scoring (`app/services/scoring.py`), diversity penalties, and macro balance heuristics.
-- **Optional UI**: `app/frontend.py` provides a Streamlit interface for demo and exploration.
+  - Local recipes use embedded nutrition; optional USDA enrichment via
+    `app/services/usda_service.py` + `app/services/nutrition_calculator.py`.
+  - Missing prep times are estimated with `app/utils/time_estimator.py`.
+- **Planning and scoring**: `app/services/planner.py` assembles day-by-day plans using deterministic scoring
+  (`app/services/scoring.py`), diversity penalties, and macro balance heuristics.
+- **Optional UI**: `app/frontend.py` provides a Streamlit interface for demos.
 
-## Setup and Installation
+## ⚙️ Setup and Installation
 ### Prerequisites
 - Python 3.9+
 - pip
 
 ### Local setup
-1. Create a virtual environment (recommended).
+1. Create a virtual environment (recommended):
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate
+   ```
 2. Install dependencies:
    ```bash
    pip install -r requirements.txt
@@ -33,10 +61,11 @@ Meal planning is a high-friction task: people describe goals in natural language
 3. Configure environment variables:
    ```bash
    cp .env.example .env
-   # Add OPENAI_API_KEY and/or USDA_API_KEY if you want enhanced parsing/nutrition
    ```
+   - `OPENAI_API_KEY` enables LLM enhancement for ambiguous queries (optional).
+   - `USDA_API_KEY` enables nutrition enrichment (optional).
 
-## How to Run the API
+## 🚀 How to Run the API
 ### Quick start (API + UI)
 ```bash
 python run.py
@@ -56,6 +85,10 @@ docker build -t nutrivo .
 docker run -p 8000:8000 -p 8501:8501 nutrivo
 ```
 
+## 📡 API Usage
+### Endpoint
+`POST /api/generate-meal-plan`
+
 ### Example request
 ```bash
 curl -X POST http://127.0.0.1:8000/api/generate-meal-plan \
@@ -63,14 +96,63 @@ curl -X POST http://127.0.0.1:8000/api/generate-meal-plan \
   -d '{"query":"Create a 3-day vegetarian meal plan","sources":["Local","TheMealDB"]}'
 ```
 
-## Design Decisions and Trade-offs
-- **Rule-based parsing with LLM fallback**: Rules provide speed, determinism, and zero cost; the LLM is only used when the query is ambiguous. Trade-off: complex or novel phrasing may still miss intent without a key.
-- **Hybrid recipe sourcing**: Local data ensures reliability and filtering control; TheMealDB adds variety. Trade-off: external data has limited dietary metadata and requires best-effort filtering.
-- **Deterministic scoring and greedy selection**: Fast and explainable, with penalties for repetition and macro imbalance. Trade-off: not globally optimal compared to CSP or ILP approaches.
-- **In-memory cache and rate limits**: Simple and effective for the take-home scope. Trade-off: resets on restart and does not scale across processes.
-- **Nutrition enrichment via USDA**: Improves accuracy when keys are available. Trade-off: ingredient parsing is heuristic and external lookups can be slow or incomplete.
+### Example response (truncated to 1 day and 1 meal)
+```json
+{
+  "meal_plan_id": "b5a2c4c2-1d0a-4b5c-9b1e-0a0b2a2d7f23",
+  "duration_days": 3,
+  "generated_at": "2025-01-15T12:34:56Z",
+  "meal_plan": [
+    {
+      "day": 1,
+      "date": "2025-01-16",
+      "meals": [
+        {
+          "meal_type": "breakfast",
+          "recipe_name": "High-Protein Oatmeal Bowl",
+          "description": "A delicious breakfast.",
+          "ingredients": ["1 cup oats", "1 cup almond milk", "1 tbsp chia seeds"],
+          "nutritional_info": {
+            "calories": 350,
+            "protein": 25,
+            "carbs": 45,
+            "fat": 8
+          },
+          "preparation_time": "15 mins",
+          "instructions": "Cook oats, top with fruit.",
+          "source": "local"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_meals": 9,
+    "dietary_compliance": ["vegetarian", "high-protein"],
+    "estimated_cost": "$45-60",
+    "avg_prep_time": "18 mins"
+  }
+}
+```
 
-## Known Limitations
+## 🧪 Testing
+Run the full test suite:
+```bash
+pytest
+```
+
+## ⚖️ Design Decisions and Trade-offs
+- **Rule-based parsing with LLM fallback**: Rules provide speed, determinism, and zero cost; the LLM is only used when
+  the query is ambiguous. Trade-off: complex or novel phrasing may still miss intent without a key.
+- **Hybrid recipe sourcing**: Local data ensures reliability and filtering control; TheMealDB adds variety.
+  Trade-off: external data has limited dietary metadata and requires best-effort filtering.
+- **Deterministic scoring and greedy selection**: Fast and explainable, with penalties for repetition and macro imbalance.
+  Trade-off: not globally optimal compared to CSP or ILP approaches.
+- **In-memory cache and rate limits**: Simple and effective for the take-home scope.
+  Trade-off: resets on restart and does not scale across processes.
+- **Nutrition enrichment via USDA**: Improves accuracy when keys are available.
+  Trade-off: ingredient parsing is heuristic and external lookups can be slow or incomplete.
+
+## ⚠️ Known Limitations
 - **Nutrition accuracy**: TheMealDB lacks nutrition data; values may be placeholders unless USDA enrichment succeeds.
 - **Diet compliance with external data**: TheMealDB has limited filtering, so compliance is best-effort.
 - **Static cost estimate**: `estimated_cost` is a fixed placeholder value.
@@ -79,7 +161,7 @@ curl -X POST http://127.0.0.1:8000/api/generate-meal-plan \
 - **Plan dates**: Dates start from the next day using local server time.
 - **Dataset size**: The local recipe set is finite, so repetition can still occur for long plans.
 
-## Future Improvements
+## 🔭 Future Improvements
 - Replace greedy planning with a constraint solver for stronger nutrition and diversity optimization.
 - Add persistent user profiles and history to personalize plans over time.
 - Improve cost estimation using ingredient pricing data.
