@@ -54,6 +54,76 @@ class RerankerService:
             return chosen, self._extract_reasons(result)
         return fallback_id, None
 
+    def rerank_batch(
+        self,
+        entries: List[Dict[str, Any]]
+    ) -> Dict[str, Dict[str, Any]]:
+        """Batch rerank multiple meal slots in a single LLM call."""
+        if not entries or not ai_service.client:
+            return {}
+
+        payload = []
+        for entry in entries:
+            candidates = entry.get("candidates") or []
+            if not candidates:
+                continue
+            scores = entry.get("scores_by_id", {})
+            raw_scores = [scores.get(recipe.id, 0.0) for recipe in candidates]
+            min_score = min(raw_scores) if raw_scores else 0.0
+            max_score = max(raw_scores) if raw_scores else 0.0
+
+            def score_to_100(raw: float) -> float:
+                if max_score == min_score:
+                    return 50.0
+                return round((raw - min_score) / (max_score - min_score) * 100.0, 2)
+
+            payload.append({
+                "meal_slot": entry["meal_slot"],
+                "meal_type": entry["meal_type"],
+                "constraints": entry.get("constraints", {}),
+                "history": entry.get("history", {}),
+                "candidates": [
+                    {
+                        "id": recipe.id,
+                        "title": recipe.title,
+                        "key_ingredients": self._extract_key_ingredients(recipe.ingredients),
+                        "meal_type": entry["meal_type"],
+                        "cuisine_or_tags": recipe.dish_types or recipe.diets,
+                        "prep_time_minutes": recipe.ready_in_minutes,
+                        "macros": {
+                            "calories": recipe.nutrition.calories,
+                            "protein_g": recipe.nutrition.protein,
+                            "carbs_g": recipe.nutrition.carbs,
+                            "fat_g": recipe.nutrition.fat
+                        },
+                        "your_score": score_to_100(scores.get(recipe.id, 0.0)),
+                        "short_notes": None
+                    }
+                    for recipe in candidates
+                ]
+            })
+
+        if not payload:
+            return {}
+
+        prompt = self._build_batch_prompt(payload)
+        result = self._call_llm_batch(prompt)
+        if not result:
+            return {}
+
+        selections = result.get("selections")
+        if not isinstance(selections, list):
+            return {}
+
+        output = {}
+        for item in selections:
+            if not isinstance(item, dict):
+                continue
+            meal_slot = item.get("meal_slot")
+            if isinstance(meal_slot, str) and meal_slot:
+                output[meal_slot] = item
+        return output
+
     def _build_payload(
         self,
         meal_type: str,
@@ -117,6 +187,33 @@ class RerankerService:
             "- No additional keys. No prose outside JSON."
         )
 
+    def _build_batch_prompt(self, payload: List[Dict[str, Any]]) -> str:
+        payload_json = json.dumps(payload, separators=(",", ":"), ensure_ascii=True)
+        return (
+            "You are a meal-plan reranking assistant. You must only choose from the provided candidates.\n"
+            "Hard constraints must be honored (dietary restrictions, exclusions, time limits, meal type).\n"
+            "Avoid repetition using the provided history when possible.\n\n"
+            f"INPUT_JSON:{payload_json}\n\n"
+            "Return ONLY a JSON object with this exact schema:\n"
+            "{\n"
+            '  "selections": [\n'
+            "    {\n"
+            '      "meal_slot": "<string>",\n'
+            '      "selected_id": "<string>",\n'
+            '      "backup_id": "<string|null>",\n'
+            '      "reasons": ["<short bullet>", "..."],\n'
+            '      "confidence": 0.0\n'
+            "    }\n"
+            "  ]\n"
+            "}\n"
+            "Rules:\n"
+            "- Return one selection per input entry.\n"
+            "- selected_id MUST be one of the candidate ids for that entry.\n"
+            "- backup_id MUST be one of the candidate ids or null.\n"
+            "- reasons: max 4 items, each <= 15 words.\n"
+            "- No additional keys. No prose outside JSON."
+        )
+
     def _call_llm(self, prompt: str) -> Optional[Dict[str, Any]]:
         try:
             response = ai_service.client.chat.completions.create(
@@ -135,6 +232,26 @@ class RerankerService:
             return json.loads(content)
         except Exception as exc:
             logger.error(f"Reranker LLM call failed: {exc}")
+            return None
+
+    def _call_llm_batch(self, prompt: str) -> Optional[Dict[str, Any]]:
+        try:
+            response = ai_service.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You strictly output valid JSON for the requested schema."
+                    },
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.1,
+                response_format={"type": "json_object"}
+            )
+            content = response.choices[0].message.content
+            return json.loads(content)
+        except Exception as exc:
+            logger.error(f"Reranker batch LLM call failed: {exc}")
             return None
 
     def _choose_valid_id(self, result: Dict[str, Any], candidate_ids: set) -> Optional[str]:

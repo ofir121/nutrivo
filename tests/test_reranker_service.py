@@ -75,3 +75,40 @@ def test_reranker_falls_back_on_invalid_selection(monkeypatch):
         fallback_id="A"
     )
     assert selected == "A"
+
+
+def test_reranker_batch_returns_map(monkeypatch):
+    service = RerankerService()
+    candidates = [make_recipe("A"), make_recipe("B")]
+    scores = {"A": 1.0, "B": 2.0}
+
+    monkeypatch.setattr(ai_service, "client", object())
+    monkeypatch.setattr(
+        service,
+        "_call_llm_batch",
+        lambda prompt: {
+            "selections": [
+                {
+                    "meal_slot": "day1:breakfast",
+                    "selected_id": "B",
+                    "backup_id": None,
+                    "reasons": ["best fit"],
+                    "confidence": 0.8
+                }
+            ]
+        }
+    )
+
+    result = service.rerank_batch([
+        {
+            "meal_slot": "day1:breakfast",
+            "meal_type": "breakfast",
+            "candidates": candidates,
+            "scores_by_id": scores,
+            "constraints": {"meal_type": "breakfast"},
+            "history": {},
+            "fallback_id": "A"
+        }
+    ])
+
+    assert result["day1:breakfast"]["selected_id"] == "B"

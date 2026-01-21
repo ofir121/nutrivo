@@ -45,3 +45,42 @@ def test_planner_calls_reranker(monkeypatch):
     assert calls["count"] >= 1
     first_meal = response.meal_plan[0].meals[0]
     assert first_meal.recipe_name == recipe_b.title
+
+
+def test_planner_calls_reranker_batch(monkeypatch):
+    monkeypatch.setenv("RERANK_ENABLED", "true")
+    monkeypatch.setenv("RERANK_TOP_K", "2")
+    monkeypatch.setenv("RERANK_MODE", "per_day")
+
+    recipe_a = make_recipe("1")
+    recipe_b = make_recipe("2")
+
+    def fake_get_recipes(diets=None, exclude=None, meal_type=None, sources=None):
+        return [recipe_a, recipe_b]
+
+    calls = {"count": 0}
+
+    def fake_rerank_batch(entries):
+        calls["count"] += 1
+        return {
+            entry["meal_slot"]: {
+                "meal_slot": entry["meal_slot"],
+                "selected_id": entry["candidates"][-1].id,
+                "backup_id": None,
+                "reasons": ["best fit"],
+                "confidence": 0.8
+            }
+            for entry in entries
+        }
+
+    monkeypatch.setattr(recipe_service, "get_recipes", fake_get_recipes)
+    monkeypatch.setattr(reranker_service, "rerank_batch", fake_rerank_batch)
+
+    planner = MealPlanner()
+    response = planner.generate_meal_plan(
+        MealPlanRequest(query="1-day meal plan", sources=["Local"])
+    )
+
+    assert calls["count"] == 1
+    first_meal = response.meal_plan[0].meals[0]
+    assert first_meal.recipe_name == recipe_b.title

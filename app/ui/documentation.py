@@ -20,6 +20,9 @@ planner works and where to extend it.
   - `OPENAI_API_KEY` (optional, enables LLM enhancement)
   - `API_URL` (optional override for the planner endpoint)
   - `API_DOCS_URL` (optional override for FastAPI docs)
+  - `RERANK_ENABLED` (optional, defaults true)
+  - `RERANK_MODE` (`per_meal`, `per_day`, `per_plan`)
+  - `RERANK_TOP_K` (optional, defaults 10)
 - **Optional UI toggle:**
   - `Use LLM to rank meals` shows AI selection reasons per meal when enabled
 - **Example queries:**
@@ -45,8 +48,8 @@ planner works and where to extend it.
    (`app/services/scoring.py`).
 7. **Macro balance + stable tie-breaks** pick the final schedule
    (`app/services/planner.py`).
-8. **Optional LLM rerank** can select among top-K and return reasons
-   (`app/services/reranker_service.py`).
+8. **Optional LLM rerank** can select among top-K and return reasons,
+   either per meal or in batch (`app/services/reranker_service.py`).
 9. **Response model** returns to UI and renders expanders, macros, and raw JSON.
 """
     )

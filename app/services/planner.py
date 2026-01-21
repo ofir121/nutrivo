@@ -63,6 +63,10 @@ class MealPlanner:
             if request.rerank_enabled is not None
             else self.rerank_enabled
         )
+        batch_mode = rerank_enabled and self.rerank_mode in {"per_day", "per_plan"}
+        per_plan_batch = batch_mode and self.rerank_mode == "per_plan"
+        plan_batch_entries = [] if per_plan_batch else None
+        plan_batch_days = [] if per_plan_batch else None
 
         for day_offset in range(parsed.days):
              current_date = (today + timedelta(days=day_offset + 1)).isoformat()
@@ -76,6 +80,11 @@ class MealPlanner:
                  meal_types.append("snack")
              
              recent_ids = set().union(*recent_recipe_history) if recent_recipe_history else set()
+             day_entries = [] if batch_mode else None
+             selected_titles_snapshot = list(selected_titles)
+             selected_ingredients_snapshot = set(selected_ingredients)
+             selected_cuisines_snapshot = set(selected_cuisines)
+             used_recipes_snapshot = set(used_recipes)
 
              # Try to find a recipe for each type: breakfast, lunch, dinner
              for m_type in meal_types:
@@ -122,30 +131,9 @@ class MealPlanner:
                      "exclude": parsed.exclude,
                      "time_limit_minutes": time_limit if time_limit_applied else None
                  }
-                 recipe, reasons = self._pick_best_recipe(
-                     available_candidates,
-                     parsed,
-                     context,
-                     day_macros,
-                     request.query,
-                     meal_slot,
-                     history,
-                     constraints,
-                     rerank_enabled
-                 )
-                 
-                 # Fallback: if we ran out of unique recipes, reuse from candidates
-                 if not recipe:
-                     fallback_pool = [
-                         r for r in candidates
-                         if r.id not in used_today and r.id not in recent_ids
-                     ]
-                     if not fallback_pool:
-                         fallback_pool = [r for r in candidates if r.id not in used_today]
-                     if not fallback_pool:
-                         fallback_pool = candidates
+                 if not batch_mode:
                      recipe, reasons = self._pick_best_recipe(
-                         fallback_pool,
+                         available_candidates,
                          parsed,
                          context,
                          day_macros,
@@ -155,38 +143,158 @@ class MealPlanner:
                          constraints,
                          rerank_enabled
                      )
+                     
+                     # Fallback: if we ran out of unique recipes, reuse from candidates
+                     if not recipe:
+                         fallback_pool = [
+                             r for r in candidates
+                             if r.id not in used_today and r.id not in recent_ids
+                         ]
+                         if not fallback_pool:
+                             fallback_pool = [r for r in candidates if r.id not in used_today]
+                         if not fallback_pool:
+                             fallback_pool = candidates
+                         recipe, reasons = self._pick_best_recipe(
+                             fallback_pool,
+                             parsed,
+                             context,
+                             day_macros,
+                             request.query,
+                             meal_slot,
+                             history,
+                             constraints,
+                             rerank_enabled
+                         )
+                         if recipe:
+                             defaults_applied.append(f"Reused recipe pool for {m_type} on day {day_offset + 1}")
+                     
                      if recipe:
-                         defaults_applied.append(f"Reused recipe pool for {m_type} on day {day_offset + 1}")
-                 
-                 if recipe:
-                     used_recipes.add(recipe.id)
-                     used_today.add(recipe.id)
-                     
-                     # Create Meal with formatted instructions
-                     meal = Meal(
-                         meal_type=m_type,
-                         recipe_name=recipe.title,
-                         description=f"A delicious {m_type}.",
-                         ingredients=recipe.ingredients,
-                         nutritional_info=recipe.nutrition,
-                         preparation_time=f"{recipe.ready_in_minutes} mins",
-                         instructions=self._format_instructions(recipe.instructions),
-                         source=f"{recipe.source_api}",
-                         selection_reasons=reasons if rerank_enabled else None
-                     )
-                     daily_meals.append(meal)
-                     
-                     day_ingredient_tokens.update(self._ingredient_tokens(recipe.ingredients))
-                     day_dish_types.update(recipe.dish_types)
-                     self._update_macros(day_macros, recipe.nutrition)
-                     if recipe.title and recipe.title not in selected_titles:
-                         selected_titles.append(recipe.title)
-                     selected_ingredients.update(self._extract_main_ingredients(recipe.ingredients))
-                     selected_cuisines.update(recipe.dish_types or [])
-                     
-                 else:
+                         used_recipes.add(recipe.id)
+                         used_today.add(recipe.id)
+                         
+                         # Create Meal with formatted instructions
+                         meal = Meal(
+                             meal_type=m_type,
+                             recipe_name=recipe.title,
+                             description=f"A delicious {m_type}.",
+                             ingredients=recipe.ingredients,
+                             nutritional_info=recipe.nutrition,
+                             preparation_time=f"{recipe.ready_in_minutes} mins",
+                             instructions=self._format_instructions(recipe.instructions),
+                             source=f"{recipe.source_api}",
+                             selection_reasons=reasons if rerank_enabled else None
+                         )
+                         daily_meals.append(meal)
+                         
+                         day_ingredient_tokens.update(self._ingredient_tokens(recipe.ingredients))
+                         day_dish_types.update(recipe.dish_types)
+                         self._update_macros(day_macros, recipe.nutrition)
+                         if recipe.title and recipe.title not in selected_titles:
+                             selected_titles.append(recipe.title)
+                         selected_ingredients.update(self._extract_main_ingredients(recipe.ingredients))
+                         selected_cuisines.update(recipe.dish_types or [])
+                         
+                     else:
+                         warnings.append(f"No candidates found for {m_type} on day {day_offset + 1}")
+                     continue
+
+                 ranked = self._rank_candidates(available_candidates, parsed, context, day_macros)
+                 used_fallback = False
+                 if not ranked:
+                     fallback_pool = [
+                         r for r in candidates
+                         if r.id not in used_today and r.id not in recent_ids
+                     ]
+                     if not fallback_pool:
+                         fallback_pool = [r for r in candidates if r.id not in used_today]
+                     if not fallback_pool:
+                         fallback_pool = candidates
+                     ranked = self._rank_candidates(fallback_pool, parsed, context, day_macros)
+                     used_fallback = bool(ranked)
+                 if not ranked:
                      warnings.append(f"No candidates found for {m_type} on day {day_offset + 1}")
- 
+                     continue
+
+                 if used_fallback:
+                     defaults_applied.append(f"Reused recipe pool for {m_type} on day {day_offset + 1}")
+
+                 top_recipe = ranked[0][1]
+                 top_k = min(self.rerank_top_k, len(ranked))
+                 top_candidates = [recipe for _, recipe in ranked[:top_k]]
+                 scores_by_id = {recipe.id: score for score, recipe in ranked[:top_k]}
+                 day_entries.append({
+                     "meal_slot": meal_slot,
+                     "meal_type": m_type,
+                     "candidates": top_candidates,
+                     "scores_by_id": scores_by_id,
+                     "constraints": constraints,
+                     "history": history,
+                     "fallback_id": top_recipe.id,
+                     "ranked": ranked
+                 })
+
+                 used_recipes.add(top_recipe.id)
+                 used_today.add(top_recipe.id)
+                 day_ingredient_tokens.update(self._ingredient_tokens(top_recipe.ingredients))
+                 day_dish_types.update(top_recipe.dish_types)
+                 self._update_macros(day_macros, top_recipe.nutrition)
+                 if top_recipe.title and top_recipe.title not in selected_titles:
+                     selected_titles.append(top_recipe.title)
+                 selected_ingredients.update(self._extract_main_ingredients(top_recipe.ingredients))
+                 selected_cuisines.update(top_recipe.dish_types or [])
+
+             if batch_mode:
+                 if per_plan_batch:
+                     plan_batch_entries.extend(day_entries)
+                     plan_batch_days.append({
+                         "day": day_offset + 1,
+                         "date": current_date,
+                         "entries": day_entries,
+                         "selected_titles_snapshot": selected_titles_snapshot,
+                         "selected_ingredients_snapshot": selected_ingredients_snapshot,
+                         "selected_cuisines_snapshot": selected_cuisines_snapshot
+                     })
+                     prev_day_ingredient_tokens = day_ingredient_tokens
+                     prev_day_dish_types = day_dish_types
+                     if used_today:
+                         recent_recipe_history.append(list(used_today))
+                         recent_recipe_history = recent_recipe_history[-2:]
+                 else:
+                     batch_results = reranker_service.rerank_batch(day_entries)
+                     (
+                         daily_meals,
+                         final_used_today,
+                         day_ingredient_tokens,
+                         day_dish_types,
+                         selected_titles_day,
+                         selected_ingredients_day,
+                         selected_cuisines_day
+                     ) = self._finalize_batch_day(
+                         day_entries,
+                         batch_results,
+                         used_recipes_snapshot
+                     )
+                     meal_plan.append(DailyPlan(
+                         day=day_offset + 1,
+                         date=current_date,
+                         meals=daily_meals
+                     ))
+                     used_recipes = used_recipes_snapshot.union(final_used_today)
+                     prev_day_ingredient_tokens = day_ingredient_tokens
+                     prev_day_dish_types = day_dish_types
+                     selected_titles = list(selected_titles_snapshot)
+                     selected_ingredients = set(selected_ingredients_snapshot)
+                     selected_cuisines = set(selected_cuisines_snapshot)
+                     for title in selected_titles_day:
+                         if title and title not in selected_titles:
+                             selected_titles.append(title)
+                     selected_ingredients.update(selected_ingredients_day)
+                     selected_cuisines.update(selected_cuisines_day)
+                     if final_used_today:
+                         recent_recipe_history.append(list(final_used_today))
+                         recent_recipe_history = recent_recipe_history[-2:]
+                 continue
+
              meal_plan.append(DailyPlan(
                  day=day_offset + 1,
                  date=current_date,
@@ -197,6 +305,33 @@ class MealPlanner:
              if used_today:
                  recent_recipe_history.append(list(used_today))
                  recent_recipe_history = recent_recipe_history[-2:]
+
+        if per_plan_batch and plan_batch_days:
+            batch_results = reranker_service.rerank_batch(plan_batch_entries)
+            meal_plan = []
+            used_recipes = set()
+            for day in plan_batch_days:
+                (
+                    daily_meals,
+                    final_used_today,
+                    day_ingredient_tokens,
+                    day_dish_types,
+                    selected_titles_day,
+                    selected_ingredients_day,
+                    selected_cuisines_day
+                ) = self._finalize_batch_day(
+                    day["entries"],
+                    batch_results,
+                    used_recipes
+                )
+                meal_plan.append(DailyPlan(
+                    day=day["day"],
+                    date=day["date"],
+                    meals=daily_meals
+                ))
+                used_recipes.update(final_used_today)
+                prev_day_ingredient_tokens = day_ingredient_tokens
+                prev_day_dish_types = day_dish_types
 
         # 5. Create Summary (Recalculate stats after AI updates)
         total_meals_count = 0
@@ -275,6 +410,91 @@ class MealPlanner:
         )
         selected = next((r for r in top_candidates if r.id == chosen_id), None)
         return selected or top_recipe, reasons
+
+    def _finalize_batch_day(self, day_entries, batch_results, used_recipes):
+        """Finalize a day's meals from a single batch rerank response."""
+        daily_meals = []
+        used_today = set()
+        day_ingredient_tokens = set()
+        day_dish_types = set()
+        selected_titles = []
+        selected_ingredients = set()
+        selected_cuisines = set()
+        used = set(used_recipes)
+
+        for entry in day_entries:
+            result = batch_results.get(entry["meal_slot"]) if batch_results else None
+            chosen_id = None
+            reasons = None
+            if isinstance(result, dict):
+                chosen_id = result.get("selected_id")
+                backup_id = result.get("backup_id")
+                candidate_ids = {recipe.id for recipe in entry["candidates"]}
+                if chosen_id not in candidate_ids:
+                    if backup_id in candidate_ids:
+                        chosen_id = backup_id
+                    else:
+                        chosen_id = None
+                raw_reasons = result.get("reasons")
+                if isinstance(raw_reasons, list):
+                    cleaned = [r for r in raw_reasons if isinstance(r, str) and r.strip()]
+                    reasons = cleaned or None
+
+            recipe = None
+            if chosen_id:
+                for _, candidate in entry["ranked"]:
+                    if candidate.id == chosen_id:
+                        recipe = candidate
+                        break
+
+            if not recipe or recipe.id in used:
+                recipe = None
+                reasons = None
+                for _, candidate in entry["ranked"]:
+                    if candidate.id not in used:
+                        recipe = candidate
+                        break
+
+            if not recipe and entry["ranked"]:
+                recipe = entry["ranked"][0][1]
+                reasons = None
+
+            if not recipe:
+                continue
+
+            used.add(recipe.id)
+            used_today.add(recipe.id)
+
+            daily_meals.append(
+                Meal(
+                    meal_type=entry["meal_type"],
+                    recipe_name=recipe.title,
+                    description=f"A delicious {entry['meal_type']}.",
+                    ingredients=recipe.ingredients,
+                    nutritional_info=recipe.nutrition,
+                    preparation_time=f"{recipe.ready_in_minutes} mins",
+                    instructions=self._format_instructions(recipe.instructions),
+                    source=f"{recipe.source_api}",
+                    selection_reasons=reasons
+                )
+            )
+
+            day_ingredient_tokens.update(self._ingredient_tokens(recipe.ingredients))
+            day_dish_types.update(recipe.dish_types)
+            if recipe.title:
+                selected_titles.append(recipe.title)
+            selected_ingredients.update(self._extract_main_ingredients(recipe.ingredients))
+            selected_cuisines.update(recipe.dish_types or [])
+
+        return (
+            daily_meals,
+            used_today,
+            day_ingredient_tokens,
+            day_dish_types,
+            selected_titles,
+            selected_ingredients,
+            selected_cuisines
+        )
 
     def _rank_candidates(self, candidates, parsed, context, day_macros):
         if not candidates:
