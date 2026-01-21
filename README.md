@@ -1,178 +1,114 @@
-# AI-Powered Personalized Meal Planner
+# Nutrivo (AI-Powered Meal Planner)
 
-A production-ready REST API that turns natural language requests into multi-day meal plans with recipes, nutrition, and summaries.
+Nutrivo is a FastAPI + Streamlit app that turns natural-language meal planning requests into a multi-day plan with recipes, nutrition summaries, and optional AI reranking.
+It combines deterministic parsing/scoring with optional LLM enhancements for ambiguous requests and tie-breaking.
 
-## ✨ At a Glance
-- ✅ `POST /api/generate-meal-plan` for natural language meal planning
-- 🧠 Rules-first parsing with optional LLM fallback for ambiguous queries
-- 🧺 Hybrid recipe sources: local JSON + TheMealDB
-- 🥗 Nutrition support with optional USDA enrichment
-- 🤖 Optional LLM reranking over top-K scored candidates with selection reasons
-- 🖥️ Optional Streamlit UI for demos
+## Demo / Screenshots
 
-## 🧭 Table of Contents
-- Problem Understanding
-- Architecture Overview
-- Setup and Installation
-- How to Run the API
-- API Usage (Request + Response Example)
-- Testing
-- Design Decisions and Trade-offs
-- Known Limitations
-- Future Improvements
+![Nutrivo logo](app/static/assets/nutrivo_logo.png)
 
-## 🧠 Problem Understanding
-Meal planning is a high-friction task: people describe goals in natural language (diet type, exclusions, prep time, budget),
-but need a structured, realistic plan. This project bridges that gap by parsing free-form queries into constraints and
-producing balanced meal plans that are practical to cook and easy to review.
+## Features
+- Natural-language meal planning via `POST /api/generate-meal-plan`.
+- Rules-first parser with optional LLM enhancement for ambiguous queries.
+- Recipe aggregation from local JSON (`data/mock_recipes.json`) and TheMealDB.
+- Deterministic scoring with diversity and macro-balance penalties.
+- Optional LLM reranking of top-K candidates with short selection reasons.
+- Optional USDA nutrition enrichment and cached lookups.
+- Streamlit UI for interactive demos and raw JSON inspection.
+- Rate limiting + request logging middleware in the API.
 
-## 🏗️ Architecture Overview
-- **API layer (FastAPI)**: `app/main.py` exposes `POST /api/generate-meal-plan` with rate limiting, request logging, and
-  Pydantic validation using `app/models.py`.
-- **Query parsing**: `app/services/parser_service.py` extracts duration, diets, exclusions, and preferences using
-  deterministic rules and (optionally) `app/services/ai_service.py` for ambiguous queries.
-- **Conflict resolution**: `app/services/conflict_resolver.py` rejects invalid requests (e.g., conflicting diets, >7 days).
-- **Recipe sourcing**: `app/services/recipe_service.py` aggregates from:
-  - `Local` source backed by `data/mock_recipes.json`
-  - `TheMealDB` via `app/services/sources/mealdb.py`
-  Results are cached in memory with a short TTL.
-- **Nutrition and timing**:
-  - Local recipes use embedded nutrition; optional USDA enrichment via
-    `app/services/usda_service.py` + `app/services/nutrition_calculator.py`.
-  - Missing prep times are estimated with `app/utils/time_estimator.py`.
-- **Planning and scoring**: `app/services/planner.py` assembles day-by-day plans using deterministic scoring
-  (`app/services/scoring.py`), diversity penalties, macro balance heuristics, and an optional LLM reranker
-  (`app/services/reranker_service.py`) over the top-K candidates with short selection reasons.
-- **Optional UI**: `app/frontend.py` provides a Streamlit interface for demos.
+## How It Works
+1. User submits a natural-language query (UI or API).
+2. Parser extracts duration, diets, exclusions, calories, and preferences.
+3. Conflict resolver enforces constraints (e.g., max 7 days, incompatible diets).
+4. Recipe sources fetch and filter candidates (local + TheMealDB) with caching.
+5. Deterministic scoring ranks candidates with diversity + macro balance penalties.
+6. Optional LLM reranker selects among top-K candidates (per-meal or batch).
+7. Planner assembles the plan and returns a summary (avg prep time, etc.).
 
-## ⚙️ Setup and Installation
+## Tech Stack
+- FastAPI + Uvicorn (API)
+- Streamlit (UI)
+- Pydantic (models/validation)
+- OpenAI API (optional LLM enhancement + rerank)
+- Requests (TheMealDB + USDA)
+- Pytest (tests)
+
+## Local Setup
+
 ### Prerequisites
 - Python 3.9+
 - pip
 
-### Local setup
-1. Create a virtual environment (recommended):
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate
-   ```
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Configure environment variables:
-   ```bash
-   cp .env.example .env
-   ```
-   - `OPENAI_API_KEY` enables LLM enhancement for ambiguous queries and reranking (optional).
-   - `USDA_API_KEY` enables nutrition enrichment (optional).
-   - Reranker settings:
-     - `RERANK_ENABLED` (default true)
-     - `RERANK_TOP_K` (default 10)
-     - `RERANK_MODE` (default per_meal)
-     - `RERANK_CACHE_TTL_SECONDS` (default 86400)
+### Install
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
-## 🚀 How to Run the API
-### Quick start (API + UI)
+### Environment Variables
+Copy `.env.example` and fill in only what you need:
+```bash
+cp .env.example .env
+```
+Used by the codebase:
+- `OPENAI_API_KEY` (optional) for LLM query enhancement + reranking.
+  - Used in `app/services/ai_service.py` and `app/services/reranker_service.py`.
+- `USDA_API_KEY` (optional) for nutrition enrichment + cached lookups.
+  - Used in `app/services/usda_service.py` and `app/services/sources/local.py`/`mealdb.py`.
+- `API_URL` (optional) overrides the backend URL in the Streamlit UI.
+  - Used in `app/frontend.py`.
+- `API_DOCS_URL` (optional) overrides the FastAPI docs link in the UI.
+  - Used in `app/frontend.py`.
+
+LLM reranker settings live in `config/llm_config.json` (not environment variables):
+- `rerank_enabled`, `rerank_top_k`, `rerank_mode` (`per_meal`, `per_day`, `per_plan`), `rerank_cache_ttl_seconds`.
+
+### Run (API + UI)
 ```bash
 python run.py
 ```
 - API: `http://127.0.0.1:8000`
-- Docs: `http://127.0.0.1:8000/docs`
+- API docs: `http://127.0.0.1:8000/docs`
 - UI: `http://127.0.0.1:8501`
 
-### API only
+### Run (API only)
 ```bash
 uvicorn app.main:app --reload --port 8000
 ```
 
-### Docker
+### Run (UI only)
 ```bash
-docker build -t nutrivo .
-docker run -p 8000:8000 -p 8501:8501 nutrivo
+streamlit run app/frontend.py --server.port 8501
 ```
 
-## 📡 API Usage
-### Endpoint
-`POST /api/generate-meal-plan`
-
-### Example request
-```bash
-curl -X POST http://127.0.0.1:8000/api/generate-meal-plan \
-  -H "Content-Type: application/json" \
-  -d '{"query":"Create a 3-day vegetarian meal plan","sources":["Local","TheMealDB"]}'
-```
-
-### Example response (truncated to 1 day and 1 meal)
-```json
-{
-  "meal_plan_id": "b5a2c4c2-1d0a-4b5c-9b1e-0a0b2a2d7f23",
-  "duration_days": 3,
-  "generated_at": "2025-01-15T12:34:56Z",
-  "meal_plan": [
-    {
-      "day": 1,
-      "date": "2025-01-16",
-      "meals": [
-        {
-          "meal_type": "breakfast",
-          "recipe_name": "High-Protein Oatmeal Bowl",
-          "description": "A delicious breakfast.",
-          "ingredients": ["1 cup oats", "1 cup almond milk", "1 tbsp chia seeds"],
-          "nutritional_info": {
-            "calories": 350,
-            "protein": 25,
-            "carbs": 45,
-            "fat": 8
-          },
-          "preparation_time": "15 mins",
-          "instructions": "Cook oats, top with fruit.",
-          "source": "local",
-          "selection_reasons": ["High protein with minimal prep", "Fits vegetarian breakfast"]
-        }
-      ]
-    }
-  ],
-  "summary": {
-    "total_meals": 9,
-    "dietary_compliance": ["vegetarian", "high-protein"],
-    "estimated_cost": "$45-60",
-    "avg_prep_time": "18 mins"
-  }
-}
-```
-
-## 🧪 Testing
-Run the full test suite:
+## Testing
 ```bash
 pytest
 ```
 
-## ⚖️ Design Decisions and Trade-offs
-- **Rule-based parsing with LLM fallback**: Rules provide speed, determinism, and zero cost; the LLM is only used when
-  the query is ambiguous. Trade-off: complex or novel phrasing may still miss intent without a key.
-- **Hybrid recipe sourcing**: Local data ensures reliability and filtering control; TheMealDB adds variety.
-  Trade-off: external data has limited dietary metadata and requires best-effort filtering.
-- **Deterministic scoring and greedy selection**: Fast and explainable, with penalties for repetition and macro imbalance.
-- **Two-stage ranking**: Deterministic scoring enforces constraints and an optional LLM reranker selects among top-K.
-  Trade-off: extra latency and cost when enabled.
-- **In-memory cache and rate limits**: Simple and effective for the take-home scope.
-  Trade-off: resets on restart and does not scale across processes.
-- **Nutrition enrichment via USDA**: Improves accuracy when keys are available.
-  Trade-off: ingredient parsing is heuristic and external lookups can be slow or incomplete.
+## Deployment Notes
+- Docker image uses `start.sh` to launch both API (8000) and Streamlit (8501).
+- Render deployment is defined in `render.yaml` and expects a Docker build.
+- `start.sh` respects `PORT` for the UI and binds both services to `0.0.0.0`.
 
-## ⚠️ Known Limitations
-- **Nutrition accuracy**: TheMealDB lacks nutrition data; values use a heuristic fallback unless USDA enrichment succeeds.
-- **Diet compliance with external data**: TheMealDB has limited filtering, so compliance is best-effort.
-- **Static cost estimate**: `estimated_cost` is a fixed placeholder value.
-- **No persistent user state**: Preferences are not stored; there is no auth or profile history.
-- **Rate limiting and caching are per-process**: They reset on restart and are not distributed.
-- **Plan dates**: Dates start from the next day using local server time.
-- **Dataset size**: The local recipe set is finite, so repetition can still occur for long plans.
+## Tradeoffs & Limitations
+- **LLM cost/latency:** Optional reranking and query enhancement add latency and token cost when enabled.
+- **MealDB filtering is best-effort:** TheMealDB lacks strong dietary metadata; filtering uses tags + heuristics.
+- **Heuristic nutrition without USDA:** MealDB recipes fall back to heuristic macro estimates if USDA lookups fail.
+- **Greedy selection:** Deterministic scoring is per-meal; it is not a global optimizer across the full plan.
+- **Top-K rerank only:** The LLM sees only top-K candidates, which can miss a better option outside that set.
+- **Retrieval scope is limited:** Local recipes are finite and MealDB fetches only a small sample per request.
+- **Prompt brittleness:** LLM output must be valid JSON; invalid outputs fall back to deterministic picks.
+- **In-memory caches:** Recipe and reranker caches reset on restart and do not share across processes.
+- **Static cost estimate:** `estimated_cost` is a fixed placeholder string today.
+- **Max duration:** Plans over 7 days are rejected by `app/services/conflict_resolver.py`.
+- **Evaluation gaps:** There is no automated quality eval beyond unit tests.
 
-## 🔭 Future Improvements
-- Replace greedy planning with a constraint solver for stronger nutrition and diversity optimization.
-- Add persistent user profiles and history to personalize plans over time.
-- Improve cost estimation using ingredient pricing data.
-- Expand sources (e.g., Spoonacular) and add richer metadata normalization.
-- Add comprehensive tests around nutrition parsing and diet rule coverage.
+## Future Improvements (Prioritized)
+1. Add a persistent cache (Redis) for MealDB/USDA and reranker results.
+2. Improve nutrition accuracy with stronger ingredient parsing and richer food data.
+3. Add an evaluation harness to compare scoring vs reranking outcomes.
+4. Expand recipe sources and normalize metadata for stricter diet compliance.
+5. Replace greedy selection with a constrained optimizer for plan-level balance.

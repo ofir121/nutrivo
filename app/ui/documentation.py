@@ -6,33 +6,34 @@ def render_documentation() -> None:
     st.markdown(
         """
 Welcome to the in-app docs. This is a quick, engineering-focused map of how the meal
-planner works and where to extend it.
+planner works, how AI is used, and where to extend it.
 """
     )
 
     st.divider()
-    st.subheader("✅ Quick Start")
+    st.subheader("✅ Quickstart Walkthrough")
     st.markdown(
         """
-- **Backend:** `uvicorn app.main:app --reload --port 8000`
-- **Frontend:** `streamlit run app/frontend.py --server.port 8501` (or `python run.py`)
-- **Env vars:**
-  - `OPENAI_API_KEY` (optional, enables LLM enhancement)
-  - `API_URL` (optional override for the planner endpoint)
-  - `API_DOCS_URL` (optional override for FastAPI docs)
-- **LLM config:**
-  - `config/llm_config.json` for rerank settings (`rerank_enabled`, `rerank_mode`,
-    `rerank_top_k`, `rerank_cache_ttl_seconds`)
-- **Optional UI toggle:**
-  - `Use LLM to rank meals` shows AI selection reasons per meal when enabled
-- **Example queries:**
-  - `3-day vegetarian plan with high protein`
-  - `7-day gluten-free menu, no nuts`
-  - `5-day pescatarian plan under 30 minutes`
+- **Start the app:** `python run.py` (or run API + UI separately).
+- **Open the UI:** `http://127.0.0.1:8501`.
+- **Enter a query:** e.g. `3-day vegetarian plan with high protein`.
+- **Pick sources:** `Local` and/or `TheMealDB`.
+- **Optional toggle:** `Use LLM to rank meals` adds selection reasons.
+- **Generate:** Expect a multi-day plan, summary metrics, and expandable meals.
 """
     )
 
-    st.subheader("🧠 Walkthrough: What happens when you click Generate?")
+    st.markdown(
+        """
+Environment setup:
+- `OPENAI_API_KEY` (optional) enables LLM parsing + reranking.
+- `USDA_API_KEY` (optional) enables nutrition enrichment.
+- `API_URL` / `API_DOCS_URL` override Streamlit links.
+- Rerank settings live in `config/llm_config.json`.
+"""
+    )
+
+    st.subheader("🧠 What happens when you click Generate?")
     st.markdown(
         """
 1. **UI collects input** (`app/frontend.py`): query + recipe sources + optional LLM rerank.
@@ -62,23 +63,67 @@ Architecture at a glance:
         |                    |
         v                    v
   user query           parser -> conflicts -> recipes
-                                -> scoring -> planner
+                                -> scoring -> planner -> response
 ```
 """
     )
 
     st.divider()
-    st.subheader("🧩 Key Features")
+    st.subheader("🧩 Engineering Overview")
     st.markdown(
         """
-- **Deterministic scoring:** explainable, reproducible ranking decisions.
-- **Constraints vs preferences:** hard conflicts vs soft scoring boosts.
-- **Diversity:** ingredient/dish repetition penalties across days.
-- **Macro balancing:** keeps protein/carbs/fat distribution steady.
-- **Multi-source recipes + caching:** multiple providers with local cache.
-- **LLM selection reasons:** explains why a meal was chosen when reranking is enabled.
-- **Rate limiting + request logging:** handled by FastAPI middleware in `app/main.py`.
-- **Failure modes:** 409 on conflicts, 502 when recipe sources fail.
+- **Prompts live in:**
+  - `app/services/ai_service.py` (query enhancement prompt)
+  - `app/services/reranker_service.py` (rerank + batch rerank prompts)
+- **Scoring/ranking lives in:**
+  - `app/services/scoring.py` (preference + diversity scoring)
+  - `app/services/planner.py` (macro balance penalties + selection)
+- **Caching:**
+  - In-memory recipe cache in `app/services/recipe_service.py` (TTL 300s).
+  - In-memory reranker cache in `app/services/reranker_service.py` (TTL via `config/llm_config.json`).
+  - USDA ingredient cache persisted to `data/usda_cache.json`.
+- **Error handling/fallbacks:**
+  - `400` when duration exceeds 7 days (`app/services/conflict_resolver.py`).
+  - `409` for conflicting diets.
+  - `502` if all recipe sources fail (`app/services/recipe_service.py`).
+  - LLM failures fall back to deterministic scoring.
+"""
+    )
+
+    st.divider()
+    st.subheader("🤖 AI Design")
+    st.markdown(
+        """
+- **LLM calls per request (when enabled):**
+  - Query enhancement: `0–1` calls (only for ambiguous queries).
+  - Reranking:
+    - `per_meal`: up to 1 call per meal.
+    - `per_day`: 1 batch call per day.
+    - `per_plan`: 1 batch call for the entire plan.
+- **What each call does:**
+  - Parse enhancement extracts structured intent.
+  - Rerank selects from top-K candidates and returns short reasons.
+- **Cost/latency control:**
+  - LLM is optional and guarded by `OPENAI_API_KEY` + UI toggle.
+  - Rerank mode + top-K live in `config/llm_config.json`.
+  - Caching avoids repeated rerank calls.
+- **Deterministic vs non-deterministic:**
+  - Parsing rules, scoring, and plan assembly are deterministic.
+  - LLM enhancement and reranking are non-deterministic by nature.
+"""
+    )
+
+    st.divider()
+    st.subheader("⚖️ Known Tradeoffs")
+    st.markdown(
+        """
+- **Best-effort diet filtering for MealDB:** limited metadata means some tags are noisy.
+- **Heuristic nutrition when USDA is missing:** MealDB macros are estimates.
+- **Greedy selection:** scoring is per-meal, not a global optimizer across days.
+- **Top-K rerank only:** the LLM never sees the full candidate set.
+- **In-memory caches:** reset on restart and are not shared across processes.
+- **Static cost estimate:** `estimated_cost` is a placeholder string.
+- **Prompt brittleness:** malformed LLM output leads to fallback selection.
 """
     )
 
@@ -87,9 +132,9 @@ Architecture at a glance:
     st.markdown(
         """
 - **New recipe source:** implement `RecipeSource` in
-  `app/services/sources/base.py`, register in `app/services/recipe_service.py`.
+  `app/services/sources/base.py`, then register in `app/services/recipe_service.py`.
 - **New preference:** extend parser extraction and add a scoring signal.
-- **Tuning weights:** adjust scoring constants carefully and re-run tests.
+- **Tune weights:** update scoring constants in `app/services/scoring.py`.
 - **Tests:** add coverage in `tests/` for parser, scoring, and planner loops.
 """
     )
@@ -100,7 +145,7 @@ Architecture at a glance:
         """
 - **“Backend not running” error:** start FastAPI with
   `uvicorn app.main:app --reload --port 8000`.
-- **Missing `OPENAI_API_KEY`:** LLM enhancement is disabled, app still works.
+- **Missing `OPENAI_API_KEY`:** LLM features are disabled; deterministic plan still works.
 - **MealDB failures:** source errors bubble as 502; local recipes still serve.
 """
     )
