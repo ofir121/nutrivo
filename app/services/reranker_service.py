@@ -1,10 +1,10 @@
 import hashlib
 import json
-import os
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.logging_config import get_logger
+from app.core.llm_config import load_llm_config
 from app.models import Recipe
 from app.services.ai_service import ai_service
 
@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 class RerankerService:
     def __init__(self) -> None:
         self.cache: Dict[str, Dict[str, Any]] = {}
-        self.cache_ttl_seconds = int(os.getenv("RERANK_CACHE_TTL_SECONDS", "86400"))
+        self.cache_ttl_seconds = load_llm_config().rerank_cache_ttl_seconds
 
     def rerank(
         self,

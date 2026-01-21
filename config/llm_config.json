@@ -1,0 +1,6 @@
+{
+  "rerank_enabled": true,
+  "rerank_top_k": 10,
+  "rerank_mode": "per_plan",
+  "rerank_cache_ttl_seconds": 86400
+}

@@ -1,4 +1,6 @@
+from app.core.llm_config import LlmConfig
 from app.models import MealPlanRequest, NutritionalInfo, Recipe
+import app.services.planner as planner_module
 from app.services.planner import MealPlanner, recipe_service, reranker_service
 
 
@@ -18,9 +20,11 @@ def make_recipe(recipe_id: str) -> Recipe:
 
 
 def test_planner_calls_reranker(monkeypatch):
-    monkeypatch.setenv("RERANK_ENABLED", "true")
-    monkeypatch.setenv("RERANK_TOP_K", "2")
-    monkeypatch.setenv("RERANK_MODE", "per_meal")
+    monkeypatch.setattr(
+        planner_module,
+        "load_llm_config",
+        lambda: LlmConfig(rerank_enabled=True, rerank_top_k=2, rerank_mode="per_meal")
+    )
 
     recipe_a = make_recipe("1")
     recipe_b = make_recipe("2")
@@ -48,9 +52,11 @@ def test_planner_calls_reranker(monkeypatch):
 
 
 def test_planner_calls_reranker_batch(monkeypatch):
-    monkeypatch.setenv("RERANK_ENABLED", "true")
-    monkeypatch.setenv("RERANK_TOP_K", "2")
-    monkeypatch.setenv("RERANK_MODE", "per_day")
+    monkeypatch.setattr(
+        planner_module,
+        "load_llm_config",
+        lambda: LlmConfig(rerank_enabled=True, rerank_top_k=2, rerank_mode="per_day")
+    )
 
     recipe_a = make_recipe("1")
     recipe_b = make_recipe("2")

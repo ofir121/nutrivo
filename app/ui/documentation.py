@@ -20,9 +20,9 @@ planner works and where to extend it.
   - `OPENAI_API_KEY` (optional, enables LLM enhancement)
   - `API_URL` (optional override for the planner endpoint)
   - `API_DOCS_URL` (optional override for FastAPI docs)
-  - `RERANK_ENABLED` (optional, defaults true)
-  - `RERANK_MODE` (`per_meal`, `per_day`, `per_plan`)
-  - `RERANK_TOP_K` (optional, defaults 10)
+- **LLM config:**
+  - `config/llm_config.json` for rerank settings (`rerank_enabled`, `rerank_mode`,
+    `rerank_top_k`, `rerank_cache_ttl_seconds`)
 - **Optional UI toggle:**
   - `Use LLM to rank meals` shows AI selection reasons per meal when enabled
 - **Example queries:**

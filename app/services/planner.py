@@ -1,10 +1,10 @@
 import uuid
 import time
-import os
 from datetime import datetime, timedelta
 from app.models import MealPlanRequest, MealPlanResponse, DailyPlan, MealPlanSummary, Meal, NutritionalInfo
 from app.services.parser_service import parser_service
 from app.core.logging_config import get_logger
+from app.core.llm_config import load_llm_config
 from app.services.scoring import score_recipe
 
 DEFAULT_MEAL_QUICK_MINUTES = 20
@@ -16,9 +16,10 @@ from app.services.reranker_service import reranker_service
 
 class MealPlanner:
     def __init__(self) -> None:
-        self.rerank_enabled = os.getenv("RERANK_ENABLED", "true").lower() == "true"
-        self.rerank_top_k = int(os.getenv("RERANK_TOP_K", "10"))
-        self.rerank_mode = os.getenv("RERANK_MODE", "per_meal")
+        config = load_llm_config()
+        self.rerank_enabled = config.rerank_enabled
+        self.rerank_top_k = config.rerank_top_k
+        self.rerank_mode = config.rerank_mode
 
     def generate_meal_plan(self, request: MealPlanRequest) -> MealPlanResponse:
         """Generate a multi-day meal plan using deterministic scoring.
