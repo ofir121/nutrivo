@@ -6,6 +6,7 @@ from app.services.parser_service import parser_service
 from app.core.logging_config import get_logger
 from app.core.llm_config import load_llm_config
 from app.services.scoring import score_recipe
+from app.core.rules import DIET_DEFINITIONS
 
 DEFAULT_MEAL_QUICK_MINUTES = 20
 
@@ -356,6 +357,14 @@ class MealPlanner:
         for item in parsed.preferences + parsed.diets:
             if item not in combined_preferences:
                 combined_preferences.append(item)
+
+        for exclusion in parsed.exclude:
+            normalized = exclusion.strip().lower()
+            if not normalized:
+                continue
+            label = f"{normalized}-free" if f"{normalized}-free" in DIET_DEFINITIONS else f"no {normalized}"
+            if label not in combined_preferences:
+                combined_preferences.append(label)
         
         summary = MealPlanSummary(
             total_meals=total_meals_count,
