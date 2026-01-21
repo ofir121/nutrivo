@@ -153,7 +153,7 @@ pytest
   Trade-off: ingredient parsing is heuristic and external lookups can be slow or incomplete.
 
 ## ⚠️ Known Limitations
-- **Nutrition accuracy**: TheMealDB lacks nutrition data; values may be placeholders unless USDA enrichment succeeds.
+- **Nutrition accuracy**: TheMealDB lacks nutrition data; values use a heuristic fallback unless USDA enrichment succeeds.
 - **Diet compliance with external data**: TheMealDB has limited filtering, so compliance is best-effort.
 - **Static cost estimate**: `estimated_cost` is a fixed placeholder value.
 - **No persistent user state**: Preferences are not stored; there is no auth or profile history.

@@ -28,6 +28,7 @@ class MealDBSource(RecipeSource):
         We will fetch a broad set and filter in memory.
         """
         recipes_data = []
+        errors = []
 
         # Strategy:
         # 1. If meal_type is specific and supported, filter by category.
@@ -45,12 +46,14 @@ class MealDBSource(RecipeSource):
             try:
                 api_start = time.time()
                 url = f"{self.BASE_URL}filter.php?c={cat}"
-                res = requests.get(url)
+                res = requests.get(url, timeout=10)
+                res.raise_for_status()
                 data = res.json()
                 api_time = time.time() - api_start
 
                 return data.get("meals") or []
-            except Exception:
+            except Exception as exc:
+                errors.append(f"filter.php?c={cat}: {exc}")
                 return []
 
         def fetch_details(meals_list: List[Dict]):
@@ -61,14 +64,15 @@ class MealDBSource(RecipeSource):
                 try:
                     detail_start = time.time()
                     mid = m.get("idMeal")
-                    res = requests.get(f"{self.BASE_URL}lookup.php?i={mid}")
+                    res = requests.get(f"{self.BASE_URL}lookup.php?i={mid}", timeout=10)
+                    res.raise_for_status()
                     d = res.json()
                     detail_time = time.time() - detail_start
                     total_detail_time += detail_time
                     if d.get("meals"):
                         detailed.extend(d["meals"])
-                except Exception:
-                    pass
+                except Exception as exc:
+                    errors.append(f"lookup.php?i={mid}: {exc}")
 
             return detailed
             
@@ -77,12 +81,14 @@ class MealDBSource(RecipeSource):
              try:
                 api_start = time.time()
                 url = f"{self.BASE_URL}search.php?s={query}"
-                res = requests.get(url)
+                res = requests.get(url, timeout=10)
+                res.raise_for_status()
                 data = res.json()
                 api_time = time.time() - api_start
 
                 return data.get("meals") or []
-             except Exception:
+             except Exception as exc:
+                errors.append(f"search.php?s={query}: {exc}")
                 return []
 
         # Logic to gather candidates
@@ -169,7 +175,10 @@ class MealDBSource(RecipeSource):
             meal_id = f"mealdb_{m.get('idMeal')}"
             estimated_time = time_estimates.get(meal_id, 30)
             adapted_recipes.append(self._adapt(m, estimated_time))
-                
+
+        if not adapted_recipes and errors:
+            raise RuntimeError("MealDB request failed: " + "; ".join(errors))
+
         return adapted_recipes
 
     def _satisfies_constraints(self, meal: Dict, diets: List[str], exclude: List[str]) -> bool:
@@ -233,18 +242,15 @@ class MealDBSource(RecipeSource):
         instructions_text = data.get("strInstructions", "")
         steps = self._normalize_steps(instructions_text)
 
-        nutrition = NutritionalInfo(
-            calories=0, # Placeholder: TheMealDB does not provide nutrition data.
-            protein=0,   # Placeholder: TheMealDB does not provide nutrition data.
-            carbs=0,     # Placeholder: TheMealDB does not provide nutrition data.
-            fat=0        # Placeholder: TheMealDB does not provide nutrition data.
-        )
-        if self.usda_service:
+        nutrition = None
+        if self.usda_service and self.usda_service.api_key:
             calculated = calculate_recipe_nutrition(ingredients, self.usda_service)
             if calculated:
                 nutrition = calculated
             else:
                 logger.info(f"USDA nutrition not found for MealDB recipe {data.get('idMeal')}")
+        if not nutrition:
+            nutrition = self._heuristic_nutrition(ingredients, estimated_time)
 
         return Recipe(
             id=f"mealdb_{data.get('idMeal')}",
@@ -259,6 +265,25 @@ class MealDBSource(RecipeSource):
             nutrition=nutrition,
             source_api="mealdb",
             original_data=data
+        )
+
+    def _heuristic_nutrition(self, ingredients: List[str], estimated_time: int) -> NutritionalInfo:
+        """Provide a simple non-zero estimate when USDA enrichment is unavailable."""
+        ingredient_count = max(1, len(ingredients))
+        factor = min(ingredient_count, 10)
+        calories = 300 + (factor * 35)
+        protein = 12 + (factor * 2)
+        carbs = 30 + (factor * 4)
+        fat = 10 + (factor * 2)
+        if estimated_time >= 45:
+            calories += 60
+            carbs += 8
+            fat += 4
+        return NutritionalInfo(
+            calories=int(calories),
+            protein=int(protein),
+            carbs=int(carbs),
+            fat=int(fat)
         )
 
     def _normalize_steps(self, instructions_text: str) -> List[str]:

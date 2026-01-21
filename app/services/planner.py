@@ -6,6 +6,8 @@ from app.services.parser_service import parser_service
 from app.core.logging_config import get_logger
 from app.services.scoring import score_recipe
 
+DEFAULT_MEAL_QUICK_MINUTES = 20
+
 logger = get_logger(__name__)
 from app.services.recipe_service import recipe_service
 from app.services.conflict_resolver import conflict_resolver
@@ -213,6 +215,8 @@ class MealPlanner:
                 minutes = pref[len(prefix):-len("-minutes")]
                 if minutes.isdigit():
                     return int(minutes)
+            if pref == f"{meal_type}-quick":
+                return DEFAULT_MEAL_QUICK_MINUTES
         return None
 
     def _format_instructions(self, instructions):
