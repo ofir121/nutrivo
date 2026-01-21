@@ -74,6 +74,7 @@ Interactive documentation (Swagger UI) is available at:
 }
 ```
 
+
 ### Duration Limits
 Meal plans are limited to 1-7 days. Requests for more than 7 days return a 400 error with guidance to request 7 days or fewer.
 
@@ -89,6 +90,10 @@ Meal plans are limited to 1-7 days. Requests for more than 7 days return a 400 e
 - **External filtering**: TheMealDB has limited filtering, so diet compliance is best-effort for that source.
 - **LLM optionality**: If `OPENAI_API_KEY` is missing, parsing falls back to rules-only extraction.
 - **In-memory safeguards**: Rate limiting and caching are in-memory only; they reset on restart and are per-process.
+
+## Cost/Usage Notes
+- LLM usage is optional and only triggered for ambiguous queries.
+- Local recipes are preferred by default; external calls are limited and cached.
 
 ## Future Improvements
 - **LLM Integration**: Further enhance LLM usage for more complex reasoning.

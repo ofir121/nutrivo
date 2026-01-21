@@ -7,7 +7,6 @@ class MealPlanRequest(BaseModel):
     query: constr(strip_whitespace=True, min_length=1) = Field(
         ..., description="Natural language meal plan request"
     )
-    sources: List[str] = Field(default=["Local"], description="List of recipe sources to use")
 
 class ParsedQuery(BaseModel):
     days: int

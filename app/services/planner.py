@@ -27,7 +27,7 @@ class MealPlanner:
         parsed = parser_service.parse(request.query)
         parse_time = time.time() - parse_start
         logger.info(f"⏱️  Query parsing: {parse_time:.2f}s")
-        
+
         # 2. Check for Conflicts (e.g. "vegan" + "pescatarian")
         # Raises 409 if invalid
         conflict_resolver.validate(parsed)
@@ -52,6 +52,7 @@ class MealPlanner:
              used_today = set()
              day_ingredient_tokens = set()
              day_dish_types = set()
+             day_macros = {"protein": 0, "carbs": 0, "fat": 0}
              meal_types = ["breakfast", "lunch", "dinner"]
              if parsed.meals_per_day > 3:
                  meal_types.append("snack")
@@ -66,8 +67,7 @@ class MealPlanner:
                  candidates = recipe_service.get_recipes(
                      diets=parsed.diets,
                      exclude=parsed.exclude,
-                     meal_type=m_type,
-                     sources=request.sources
+                     meal_type=m_type
                  )
 
                  time_limit = self._extract_meal_time_limit(parsed.preferences, m_type)
@@ -89,7 +89,7 @@ class MealPlanner:
                      "recent_ingredient_tokens": prev_day_ingredient_tokens,
                      "recent_dish_types": prev_day_dish_types
                  }
-                 recipe = self._pick_best_recipe(available_candidates, parsed, context)
+                 recipe = self._pick_best_recipe(available_candidates, parsed, context, day_macros)
                  
                  # Fallback: if we ran out of unique recipes, reuse from candidates
                  if not recipe:
@@ -101,7 +101,7 @@ class MealPlanner:
                          fallback_pool = [r for r in candidates if r.id not in used_today]
                      if not fallback_pool:
                          fallback_pool = candidates
-                     recipe = self._pick_best_recipe(fallback_pool, parsed, context)
+                     recipe = self._pick_best_recipe(fallback_pool, parsed, context, day_macros)
                      if recipe:
                          defaults_applied.append(f"Reused recipe pool for {m_type} on day {day_offset + 1}")
                  
@@ -124,6 +124,7 @@ class MealPlanner:
                      
                      day_ingredient_tokens.update(self._ingredient_tokens(recipe.ingredients))
                      day_dish_types.update(recipe.dish_types)
+                     self._update_macros(day_macros, recipe.nutrition)
                      
                  else:
                      warnings.append(f"No candidates found for {m_type} on day {day_offset + 1}")
@@ -180,13 +181,15 @@ class MealPlanner:
             summary=summary
         )
 
-    def _pick_best_recipe(self, candidates, parsed, context):
+    def _pick_best_recipe(self, candidates, parsed, context, day_macros):
         """Pick the top-scoring recipe with a stable tie-break."""
         if not candidates:
             return None
         scored = []
         for recipe in candidates:
-            scored.append((score_recipe(recipe, parsed, context), recipe))
+            base_score = score_recipe(recipe, parsed, context)
+            balance_penalty = self._macro_balance_penalty(day_macros, recipe.nutrition)
+            scored.append((base_score - balance_penalty, recipe))
         scored.sort(key=lambda item: (-item[0], item[1].id))
         return scored[0][1]
 
@@ -218,6 +221,40 @@ class MealPlanner:
         if isinstance(instructions, list):
             return "\n".join(step for step in instructions if step)
         return str(instructions)
+
+    def _update_macros(self, day_macros, nutrition):
+        day_macros["protein"] += nutrition.protein or 0
+        day_macros["carbs"] += nutrition.carbs or 0
+        day_macros["fat"] += nutrition.fat or 0
+
+    def _macro_balance_penalty(self, day_macros, nutrition):
+        """Penalty for pushing macro ratios outside basic ranges."""
+        protein = day_macros["protein"] + (nutrition.protein or 0)
+        carbs = day_macros["carbs"] + (nutrition.carbs or 0)
+        fat = day_macros["fat"] + (nutrition.fat or 0)
+        total = protein + carbs + fat
+        if total <= 0:
+            return 0.0
+
+        protein_ratio = protein / total
+        carbs_ratio = carbs / total
+        fat_ratio = fat / total
+
+        penalty = 0.0
+        if protein_ratio < 0.2:
+            penalty += (0.2 - protein_ratio) * 5.0
+        if protein_ratio > 0.45:
+            penalty += (protein_ratio - 0.45) * 5.0
+        if carbs_ratio < 0.25:
+            penalty += (0.25 - carbs_ratio) * 4.0
+        if carbs_ratio > 0.6:
+            penalty += (carbs_ratio - 0.6) * 4.0
+        if fat_ratio < 0.15:
+            penalty += (0.15 - fat_ratio) * 4.0
+        if fat_ratio > 0.4:
+            penalty += (fat_ratio - 0.4) * 4.0
+
+        return penalty
 
 
 planner = MealPlanner()
