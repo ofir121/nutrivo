@@ -5,14 +5,17 @@ import os
 
 # Configuration
 API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/api/generate-meal-plan")
+API_DOCS_URL = os.getenv("API_DOCS_URL", "http://127.0.0.1:8000/docs")
 
 st.set_page_config(page_title="AI Meal Planner", layout="wide")
 
-col1, col2 = st.columns([1, 4])
+col1, col2, col3 = st.columns([1, 4, 1])
 with col1:
     st.image("app/static/assets/nutrivo_logo.png", width=150)
 with col2:
     st.title("AI-Powered Personal Meal Planner")
+with col3:
+    st.link_button("API Docs", API_DOCS_URL, type="secondary", use_container_width=True)
 st.markdown("""
 Welcome! Describe your ideal meal plan, and I'll generate a schedule for you.
 
