@@ -2,6 +2,10 @@ import streamlit as st
 
 
 def render_documentation() -> None:
+    """
+    Render the Streamlit documentation page for the meal planner UI.
+    Summarizes the workflow, heuristics, and extension points.
+    """
     st.header("📚 Documentation")
     st.markdown(
         """
