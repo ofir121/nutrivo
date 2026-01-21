@@ -107,8 +107,10 @@ pytest
 - **Evaluation gaps:** There is no automated quality eval beyond unit tests.
 
 ## Future Improvements (Prioritized)
-1. Add a persistent cache (Redis) for MealDB/USDA and reranker results.
-2. Improve nutrition accuracy with stronger ingredient parsing and richer food data.
-3. Add an evaluation harness to compare scoring vs reranking outcomes.
-4. Expand recipe sources and normalize metadata for stricter diet compliance.
-5. Replace greedy selection with a constrained optimizer for plan-level balance.
+1. **Plan-level optimization (replace greedy selection):** use a constraint solver (e.g., OR-Tools CP-SAT) to enforce macro balance, diversity, and prep-time budgets across the full plan.
+2. **Persistent caching + shared rate limits:** add Redis for MealDB/USDA lookups and reranker results, with cache stampede protection and distributed rate limiting.
+3. **Evaluation harness + regression suite:** build a labeled query set and metrics (diet compliance, macro deviation, diversity score) to compare deterministic scoring vs. LLM rerank.
+4. **Richer sources + normalized metadata:** add more recipe providers and map ingredients → diet taxonomy to improve compliance and reduce heuristic filtering.
+5. **Nutrition accuracy upgrades:** improve ingredient parsing (quantities/units) and enrich macros with higher-quality food data sources.
+6. **Personalization & memory:** store user profiles (user_id), preferences, and feedback to adapt plans over time.
+7. **Budget + cost estimation:** integrate price data to generate per-plan cost estimates and enforce budget constraints.

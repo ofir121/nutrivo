@@ -139,6 +139,24 @@ Architecture at a glance:
 """
     )
 
+    st.subheader("🧭 Future improvements")
+    st.markdown(
+        """
+- **Plan-level optimization:** replace greedy selection with a constraint solver
+  (macro balance, diversity, prep-time budgets across the full plan).
+- **Persistent caching + shared rate limits:** add Redis for MealDB/USDA lookups
+  and reranker results, with cache stampede protection.
+- **Evaluation harness:** build a labeled query set and metrics to compare
+  deterministic scoring vs. LLM rerank.
+- **Richer sources + normalized metadata:** expand providers and map ingredients to
+  a diet taxonomy for stricter compliance.
+- **Nutrition accuracy upgrades:** improve ingredient parsing (units/quantities) and
+  use higher-quality food data.
+- **Personalization + budget awareness:** store user profiles and integrate price
+  data to enforce budget constraints.
+"""
+    )
+
     st.divider()
     st.subheader("❓ FAQ / Troubleshooting")
     st.markdown(
