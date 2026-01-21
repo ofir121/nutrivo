@@ -8,6 +8,10 @@ class MealPlanRequest(BaseModel):
         ..., description="Natural language meal plan request"
     )
     sources: List[str] = Field(default=["Local"], description="List of recipe sources to use")
+    rerank_enabled: Optional[bool] = Field(
+        default=None,
+        description="Enable LLM reranking of top-K candidates"
+    )
 
 class ParsedQuery(BaseModel):
     days: int
@@ -49,6 +53,7 @@ class Meal(BaseModel):
     preparation_time: str
     instructions: str
     source: str
+    selection_reasons: Optional[List[str]] = None
 
 class DailyPlan(BaseModel):
     day: int

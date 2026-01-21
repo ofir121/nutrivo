@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import json
 import os
+import html
 
 try:
     from app.ui.documentation import render_documentation
@@ -13,6 +14,41 @@ API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/api/generate-meal-plan")
 API_DOCS_URL = os.getenv("API_DOCS_URL", "http://127.0.0.1:8000/docs")
 
 st.set_page_config(page_title="AI Meal Planner", layout="wide")
+st.markdown(
+    """
+    <style>
+    .reason-tooltip {
+        position: relative;
+        display: inline-block;
+        cursor: help;
+        font-weight: 600;
+        margin-right: 6px;
+    }
+    .reason-tooltiptext {
+        visibility: hidden;
+        width: 280px;
+        background-color: #111827;
+        color: #f9fafb;
+        text-align: left;
+        border-radius: 6px;
+        padding: 8px 10px;
+        position: absolute;
+        z-index: 1000;
+        bottom: 135%;
+        left: 50%;
+        transform: translateX(-50%);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+        font-size: 12px;
+        line-height: 1.4;
+        white-space: normal;
+    }
+    .reason-tooltip:hover .reason-tooltiptext {
+        visibility: visible;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 def rerun_app() -> None:
     try:
@@ -56,6 +92,11 @@ sources = st.multiselect(
     ["Local", "TheMealDB"],
     default=["Local"]
 )
+use_llm_rerank = st.checkbox(
+    "Use LLM to rank meals",
+    value=False,
+    help="Optional second-stage rerank of top candidates (may add latency/cost)."
+)
 
 if st.button("Generate Plan", type="primary"):
     if not query:
@@ -65,7 +106,8 @@ if st.button("Generate Plan", type="primary"):
             try:
                 response = requests.post(API_URL, json={
                     "query": query,
-                    "sources": sources
+                    "sources": sources,
+                    "rerank_enabled": use_llm_rerank
                 })
                 
                 if response.status_code == 200:
@@ -116,7 +158,6 @@ if st.button("Generate Plan", type="primary"):
                                     f"Fat {fat}g ({fat_pct}%)"
                                 )
                                 st.write(meal['description'])
-                                
                                 c1, c2 = st.columns(2)
                                 with c1:
                                     st.markdown("**Ingredients**")
@@ -131,6 +172,29 @@ if st.button("Generate Plan", type="primary"):
                                         steps = [s for s in instructions.split("\n") if s]
                                     for i, step in enumerate(steps, 1):
                                         st.markdown(f"{i}. {step}")
+
+                                if use_llm_rerank:
+                                    reasons = meal.get("selection_reasons") or []
+                                    if reasons:
+                                        tooltip_lines = [
+                                            f"• {html.escape(reason)}"
+                                            for reason in reasons
+                                        ]
+                                        tooltip_html = "<br>".join(tooltip_lines)
+                                    else:
+                                        tooltip_html = html.escape(
+                                            "No LLM selection reasons available (rerank skipped or LLM unavailable)."
+                                        )
+                                    st.markdown(
+                                        f"""
+
+                                        <span>Why this meal was chosen</span>
+                                        <span class="reason-tooltip">[?]
+                                            <span class="reason-tooltiptext">{tooltip_html}</span>
+                                        </span>
+                                        """,
+                                        unsafe_allow_html=True
+                                    )
                                 st.divider()
 
                     # Collapsible JSON Response Viewer

@@ -7,6 +7,7 @@ A production-ready REST API that turns natural language requests into multi-day 
 - 🧠 Rules-first parsing with optional LLM fallback for ambiguous queries
 - 🧺 Hybrid recipe sources: local JSON + TheMealDB
 - 🥗 Nutrition support with optional USDA enrichment
+- 🤖 Optional LLM reranking over top-K scored candidates with selection reasons
 - 🖥️ Optional Streamlit UI for demos
 
 ## 🧭 Table of Contents
@@ -40,7 +41,8 @@ producing balanced meal plans that are practical to cook and easy to review.
     `app/services/usda_service.py` + `app/services/nutrition_calculator.py`.
   - Missing prep times are estimated with `app/utils/time_estimator.py`.
 - **Planning and scoring**: `app/services/planner.py` assembles day-by-day plans using deterministic scoring
-  (`app/services/scoring.py`), diversity penalties, and macro balance heuristics.
+  (`app/services/scoring.py`), diversity penalties, macro balance heuristics, and an optional LLM reranker
+  (`app/services/reranker_service.py`) over the top-K candidates with short selection reasons.
 - **Optional UI**: `app/frontend.py` provides a Streamlit interface for demos.
 
 ## ⚙️ Setup and Installation
@@ -62,8 +64,13 @@ producing balanced meal plans that are practical to cook and easy to review.
    ```bash
    cp .env.example .env
    ```
-   - `OPENAI_API_KEY` enables LLM enhancement for ambiguous queries (optional).
+   - `OPENAI_API_KEY` enables LLM enhancement for ambiguous queries and reranking (optional).
    - `USDA_API_KEY` enables nutrition enrichment (optional).
+   - Reranker settings:
+     - `RERANK_ENABLED` (default true)
+     - `RERANK_TOP_K` (default 10)
+     - `RERANK_MODE` (default per_meal)
+     - `RERANK_CACHE_TTL_SECONDS` (default 86400)
 
 ## 🚀 How to Run the API
 ### Quick start (API + UI)
@@ -120,7 +127,8 @@ curl -X POST http://127.0.0.1:8000/api/generate-meal-plan \
           },
           "preparation_time": "15 mins",
           "instructions": "Cook oats, top with fruit.",
-          "source": "local"
+          "source": "local",
+          "selection_reasons": ["High protein with minimal prep", "Fits vegetarian breakfast"]
         }
       ]
     }
@@ -146,7 +154,8 @@ pytest
 - **Hybrid recipe sourcing**: Local data ensures reliability and filtering control; TheMealDB adds variety.
   Trade-off: external data has limited dietary metadata and requires best-effort filtering.
 - **Deterministic scoring and greedy selection**: Fast and explainable, with penalties for repetition and macro imbalance.
-  Trade-off: not globally optimal compared to CSP or ILP approaches.
+- **Two-stage ranking**: Deterministic scoring enforces constraints and an optional LLM reranker selects among top-K.
+  Trade-off: extra latency and cost when enabled.
 - **In-memory cache and rate limits**: Simple and effective for the take-home scope.
   Trade-off: resets on restart and does not scale across processes.
 - **Nutrition enrichment via USDA**: Improves accuracy when keys are available.

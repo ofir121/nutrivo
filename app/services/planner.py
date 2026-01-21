@@ -1,5 +1,6 @@
 import uuid
 import time
+import os
 from datetime import datetime, timedelta
 from app.models import MealPlanRequest, MealPlanResponse, DailyPlan, MealPlanSummary, Meal, NutritionalInfo
 from app.services.parser_service import parser_service
@@ -11,8 +12,14 @@ DEFAULT_MEAL_QUICK_MINUTES = 20
 logger = get_logger(__name__)
 from app.services.recipe_service import recipe_service
 from app.services.conflict_resolver import conflict_resolver
+from app.services.reranker_service import reranker_service
 
 class MealPlanner:
+    def __init__(self) -> None:
+        self.rerank_enabled = os.getenv("RERANK_ENABLED", "true").lower() == "true"
+        self.rerank_top_k = int(os.getenv("RERANK_TOP_K", "10"))
+        self.rerank_mode = os.getenv("RERANK_MODE", "per_meal")
+
     def generate_meal_plan(self, request: MealPlanRequest) -> MealPlanResponse:
         """Generate a multi-day meal plan using deterministic scoring.
 
@@ -47,7 +54,16 @@ class MealPlanner:
         prev_day_ingredient_tokens = set()
         prev_day_dish_types = set()
         recent_recipe_history = []
+        selected_titles = []
+        selected_ingredients = set()
+        selected_cuisines = set()
         
+        rerank_enabled = (
+            request.rerank_enabled
+            if request.rerank_enabled is not None
+            else self.rerank_enabled
+        )
+
         for day_offset in range(parsed.days):
              current_date = (today + timedelta(days=day_offset + 1)).isoformat()
              daily_meals = []
@@ -74,6 +90,7 @@ class MealPlanner:
                  )
 
                  time_limit = self._extract_meal_time_limit(parsed.preferences, m_type)
+                 time_limit_applied = False
                  if time_limit:
                      limited = [
                          r for r in candidates
@@ -81,6 +98,7 @@ class MealPlanner:
                      ]
                      if limited:
                          candidates = limited
+                         time_limit_applied = True
                      else:
                          warnings.append(
                              f"No {m_type} recipes found under {time_limit} mins on day {day_offset + 1}; relaxing time constraint."
@@ -92,7 +110,29 @@ class MealPlanner:
                      "recent_ingredient_tokens": prev_day_ingredient_tokens,
                      "recent_dish_types": prev_day_dish_types
                  }
-                 recipe = self._pick_best_recipe(available_candidates, parsed, context, day_macros)
+                 history = {
+                     "previously_selected_titles": selected_titles[-12:],
+                     "previously_selected_main_ingredients": sorted(selected_ingredients)[:20],
+                     "cuisines_used": sorted(selected_cuisines)
+                 }
+                 meal_slot = f"day{day_offset + 1}:{m_type}"
+                 constraints = {
+                     "meal_type": m_type,
+                     "diets": parsed.diets,
+                     "exclude": parsed.exclude,
+                     "time_limit_minutes": time_limit if time_limit_applied else None
+                 }
+                 recipe, reasons = self._pick_best_recipe(
+                     available_candidates,
+                     parsed,
+                     context,
+                     day_macros,
+                     request.query,
+                     meal_slot,
+                     history,
+                     constraints,
+                     rerank_enabled
+                 )
                  
                  # Fallback: if we ran out of unique recipes, reuse from candidates
                  if not recipe:
@@ -104,7 +144,17 @@ class MealPlanner:
                          fallback_pool = [r for r in candidates if r.id not in used_today]
                      if not fallback_pool:
                          fallback_pool = candidates
-                     recipe = self._pick_best_recipe(fallback_pool, parsed, context, day_macros)
+                     recipe, reasons = self._pick_best_recipe(
+                         fallback_pool,
+                         parsed,
+                         context,
+                         day_macros,
+                         request.query,
+                         meal_slot,
+                         history,
+                         constraints,
+                         rerank_enabled
+                     )
                      if recipe:
                          defaults_applied.append(f"Reused recipe pool for {m_type} on day {day_offset + 1}")
                  
@@ -121,13 +171,18 @@ class MealPlanner:
                          nutritional_info=recipe.nutrition,
                          preparation_time=f"{recipe.ready_in_minutes} mins",
                          instructions=self._format_instructions(recipe.instructions),
-                         source=f"{recipe.source_api}"
+                         source=f"{recipe.source_api}",
+                         selection_reasons=reasons if rerank_enabled else None
                      )
                      daily_meals.append(meal)
                      
                      day_ingredient_tokens.update(self._ingredient_tokens(recipe.ingredients))
                      day_dish_types.update(recipe.dish_types)
                      self._update_macros(day_macros, recipe.nutrition)
+                     if recipe.title and recipe.title not in selected_titles:
+                         selected_titles.append(recipe.title)
+                     selected_ingredients.update(self._extract_main_ingredients(recipe.ingredients))
+                     selected_cuisines.update(recipe.dish_types or [])
                      
                  else:
                      warnings.append(f"No candidates found for {m_type} on day {day_offset + 1}")
@@ -184,17 +239,61 @@ class MealPlanner:
             summary=summary
         )
 
-    def _pick_best_recipe(self, candidates, parsed, context, day_macros):
-        """Pick the top-scoring recipe with a stable tie-break."""
+    def _pick_best_recipe(
+        self,
+        candidates,
+        parsed,
+        context,
+        day_macros,
+        query,
+        meal_slot,
+        history,
+        constraints,
+        rerank_enabled
+    ):
+        """Pick the top-scoring recipe with an optional LLM rerank on the top-K."""
+        ranked = self._rank_candidates(candidates, parsed, context, day_macros)
+        if not ranked:
+            return None, None
+        top_recipe = ranked[0][1]
+        if not self._should_rerank(ranked, rerank_enabled):
+            return top_recipe, None
+
+        top_k = min(self.rerank_top_k, len(ranked))
+        top_candidates = [recipe for _, recipe in ranked[:top_k]]
+        scores_by_id = {recipe.id: score for score, recipe in ranked[:top_k]}
+
+        chosen_id, reasons = reranker_service.rerank(
+            query=query,
+            meal_slot=meal_slot,
+            meal_type=constraints.get("meal_type"),
+            candidates=top_candidates,
+            scores_by_id=scores_by_id,
+            constraints=constraints,
+            history=history,
+            fallback_id=top_recipe.id
+        )
+        selected = next((r for r in top_candidates if r.id == chosen_id), None)
+        return selected or top_recipe, reasons
+
+    def _rank_candidates(self, candidates, parsed, context, day_macros):
         if not candidates:
-            return None
+            return []
         scored = []
         for recipe in candidates:
             base_score = score_recipe(recipe, parsed, context)
             balance_penalty = self._macro_balance_penalty(day_macros, recipe.nutrition)
             scored.append((base_score - balance_penalty, recipe))
         scored.sort(key=lambda item: (-item[0], item[1].id))
-        return scored[0][1]
+        return scored
+
+    def _should_rerank(self, ranked, rerank_enabled):
+        if not rerank_enabled:
+            return False
+        if self.rerank_mode != "per_meal":
+            logger.info(f"Rerank mode '{self.rerank_mode}' not supported; skipping rerank.")
+            return False
+        return len(ranked) >= 2
 
     def _ingredient_tokens(self, ingredients):
         """Extract simple ingredient tokens for overlap penalties."""
@@ -204,6 +303,16 @@ class MealPlanner:
                 if len(token) >= 3:
                     tokens.add(token)
         return tokens
+
+    def _extract_main_ingredients(self, ingredients, limit=6):
+        if not ingredients:
+            return []
+        cleaned = []
+        for item in ingredients:
+            base = item.split("(")[0].strip()
+            if base:
+                cleaned.append(base)
+        return cleaned[:limit]
 
     def _extract_meal_time_limit(self, preferences, meal_type):
         """Extract a meal-specific time limit from preferences."""

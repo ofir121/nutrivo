@@ -20,6 +20,8 @@ planner works and where to extend it.
   - `OPENAI_API_KEY` (optional, enables LLM enhancement)
   - `API_URL` (optional override for the planner endpoint)
   - `API_DOCS_URL` (optional override for FastAPI docs)
+- **Optional UI toggle:**
+  - `Use LLM to rank meals` shows AI selection reasons per meal when enabled
 - **Example queries:**
   - `3-day vegetarian plan with high protein`
   - `7-day gluten-free menu, no nuts`
@@ -30,7 +32,7 @@ planner works and where to extend it.
     st.subheader("🧠 Walkthrough: What happens when you click Generate?")
     st.markdown(
         """
-1. **UI collects input** (`app/frontend.py`): query + recipe sources.
+1. **UI collects input** (`app/frontend.py`): query + recipe sources + optional LLM rerank.
 2. **API request** to `/api/generate-meal-plan` (`app/main.py`).
 3. **Parser extracts structure** and optionally enhances ambiguous text via LLM
    (`app/services/parser_service.py`, `app/services/ai_service.py`).
@@ -43,7 +45,9 @@ planner works and where to extend it.
    (`app/services/scoring.py`).
 7. **Macro balance + stable tie-breaks** pick the final schedule
    (`app/services/planner.py`).
-8. **Response model** returns to UI and renders expanders, macros, and raw JSON.
+8. **Optional LLM rerank** can select among top-K and return reasons
+   (`app/services/reranker_service.py`).
+9. **Response model** returns to UI and renders expanders, macros, and raw JSON.
 """
     )
 
@@ -69,6 +73,7 @@ Architecture at a glance:
 - **Diversity:** ingredient/dish repetition penalties across days.
 - **Macro balancing:** keeps protein/carbs/fat distribution steady.
 - **Multi-source recipes + caching:** multiple providers with local cache.
+- **LLM selection reasons:** explains why a meal was chosen when reranking is enabled.
 - **Rate limiting + request logging:** handled by FastAPI middleware in `app/main.py`.
 - **Failure modes:** 409 on conflicts, 502 when recipe sources fail.
 """
