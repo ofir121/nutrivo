@@ -95,17 +95,16 @@ pytest
 - `start.sh` respects `PORT` for the UI and binds both services to `0.0.0.0`.
 
 ## Tradeoffs & Limitations
-- **LLM cost/latency:** Optional reranking and query enhancement add latency and token cost when enabled.
-- **MealDB filtering is best-effort:** TheMealDB lacks strong dietary metadata; filtering uses tags + heuristics.
-- **Heuristic nutrition without USDA:** MealDB recipes fall back to heuristic macro estimates if USDA lookups fail.
-- **Greedy selection:** Deterministic scoring is per-meal; it is not a global optimizer across the full plan.
-- **Top-K rerank only:** The LLM sees only top-K candidates, which can miss a better option outside that set.
-- **Retrieval scope is limited:** Local recipes are finite and MealDB fetches only a small sample per request.
-- **Prompt brittleness:** LLM output must be valid JSON; invalid outputs fall back to deterministic picks.
-- **In-memory caches:** Recipe and reranker caches reset on restart and do not share across processes.
-- **Static cost estimate:** `estimated_cost` is a fixed placeholder string today.
-- **Max duration:** Plans over 7 days are rejected by `app/services/conflict_resolver.py`.
-- **Evaluation gaps:** There is no automated quality eval beyond unit tests.
+- **LLM usage is optional but adds overhead:** When enabled, query enhancement and reranking increase latency and token cost. If the model returns invalid JSON, the system falls back to deterministic picks.
+- **Recipe metadata is incomplete:** TheMealDB has limited diet tags, so diet/exclusion filtering is heuristic and can miss edge cases.
+- **Nutrition can be approximate:** If USDA lookups fail, macro estimates are heuristic and may be imprecise.
+- **Planning is local, not global:** Scoring is done per-meal slot (greedy). This can miss plan-level optima (macro balance/diversity across all days).
+- **LLM only sees top‑K candidates:** Reranking is limited to the shortlisted recipes, so a better option outside top‑K may be missed.
+- **Retrieval is bounded:** Local recipes are finite and TheMealDB is sampled, which caps diversity.
+- **Caches are ephemeral:** In-memory caches reset on restart and are not shared across processes.
+- **Cost is a placeholder:** `estimated_cost` is static today.
+- **Hard caps exist:** Requests over 7 days are rejected by `app/services/conflict_resolver.py`.
+- **Limited evaluation:** Beyond unit tests, there’s no automated plan-quality evaluation harness.
 
 ## Future Improvements (Prioritized)
 1. **Plan-level optimization (replace greedy selection):** use a constraint solver (e.g., OR-Tools CP-SAT) to enforce macro balance, diversity, and prep-time budgets across the full plan.
