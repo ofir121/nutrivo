@@ -3,3 +3,4 @@
 **/*.pyo
 ai/*.md
 data/usda_cache.json
+node_modules/
