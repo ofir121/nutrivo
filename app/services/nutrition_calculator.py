@@ -23,7 +23,7 @@ def calculate_recipe_nutrition(
         if not nutrients:
             missing += 1
             continue
-        weight = grams if grams is not None else 100.0
+        weight = grams if grams is not None else 0
         factor = weight / 100.0
         totals["calories"] += nutrients["calories"] * factor
         totals["protein"] += nutrients["protein"] * factor
