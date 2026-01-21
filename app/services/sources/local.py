@@ -6,6 +6,8 @@ from app.models import Recipe, NutritionalInfo
 from app.core.rules import DIET_DEFINITIONS, INGREDIENT_SYNONYMS
 from app.core.logging_config import get_logger
 from app.utils.time_estimator import estimate_prep_time as estimate_prep_time_fn
+from app.services.nutrition_calculator import calculate_recipe_nutrition
+from app.services.usda_service import USDAService
 
 logger = get_logger(__name__)
 
@@ -14,6 +16,8 @@ class LocalSource(RecipeSource):
     
     def __init__(self, file_path: str = "data/mock_recipes.json"):
         self.recipes = self._load_data(file_path)
+        api_key = os.getenv("USDA_API_KEY")
+        self.usda_service = USDAService(api_key) if api_key else None
 
     def _load_data(self, file_path: str) -> List[dict]:
         if not os.path.exists(file_path):
@@ -109,7 +113,13 @@ class LocalSource(RecipeSource):
                     )
 
         # 5. Adapt to Canonical Model with estimates
-        return [self._adapt(r, time_estimates) for r in filtered_data]
+        recipes = [self._adapt(r, time_estimates) for r in filtered_data]
+        if self.usda_service:
+            for recipe in recipes:
+                nutrition = calculate_recipe_nutrition(recipe.ingredients, self.usda_service)
+                if nutrition:
+                    recipe.nutrition = nutrition
+        return recipes
 
     def _matches_diet(self, recipe_diets: List[str], req_diet: str) -> bool:
         # Normalize both sides

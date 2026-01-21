@@ -67,7 +67,8 @@ class MealPlanner:
                  candidates = recipe_service.get_recipes(
                      diets=parsed.diets,
                      exclude=parsed.exclude,
-                     meal_type=m_type
+                     meal_type=m_type,
+                     sources=request.sources
                  )
 
                  time_limit = self._extract_meal_time_limit(parsed.preferences, m_type)

@@ -1,3 +1,4 @@
+import os
 import requests
 import re
 import time
@@ -7,12 +8,18 @@ from app.models import Recipe, NutritionalInfo
 from app.core.logging_config import get_logger
 from app.core.rules import DIET_DEFINITIONS, INGREDIENT_SYNONYMS
 from app.utils.time_estimator import estimate_prep_time
+from app.services.nutrition_calculator import calculate_recipe_nutrition
+from app.services.usda_service import USDAService
 
 logger = get_logger(__name__)
 
 class MealDBSource(RecipeSource):
     name = "TheMealDB"
     BASE_URL = "https://www.themealdb.com/api/json/v1/1/"
+
+    def __init__(self):
+        api_key = os.getenv("USDA_API_KEY")
+        self.usda_service = USDAService(api_key) if api_key else USDAService(None)
 
     def get_recipes(self, diets: List[str], exclude: List[str], meal_type: Optional[str]) -> List[Recipe]:
         """
@@ -224,10 +231,20 @@ class MealDBSource(RecipeSource):
 
         # Instructions
         instructions_text = data.get("strInstructions", "")
-        # Split by newlines or periods roughly
-        steps = [s.strip() for s in instructions_text.split('\r\n') if s.strip()]
-        if not steps:
-            steps = [s.strip() for s in instructions_text.split('\n') if s.strip()]
+        steps = self._normalize_steps(instructions_text)
+
+        nutrition = NutritionalInfo(
+            calories=0, # Placeholder: TheMealDB does not provide nutrition data.
+            protein=0,   # Placeholder: TheMealDB does not provide nutrition data.
+            carbs=0,     # Placeholder: TheMealDB does not provide nutrition data.
+            fat=0        # Placeholder: TheMealDB does not provide nutrition data.
+        )
+        if self.usda_service:
+            calculated = calculate_recipe_nutrition(ingredients, self.usda_service)
+            if calculated:
+                nutrition = calculated
+            else:
+                logger.info(f"USDA nutrition not found for MealDB recipe {data.get('idMeal')}")
 
         return Recipe(
             id=f"mealdb_{data.get('idMeal')}",
@@ -239,12 +256,22 @@ class MealDBSource(RecipeSource):
             dish_types=[data.get("strCategory", "Main Course")],
             ingredients=ingredients,
             instructions=steps,
-            nutrition=NutritionalInfo(
-                calories=0, # Placeholder: TheMealDB does not provide nutrition data.
-                protein=0,   # Placeholder: TheMealDB does not provide nutrition data.
-                carbs=0,     # Placeholder: TheMealDB does not provide nutrition data.
-                fat=0        # Placeholder: TheMealDB does not provide nutrition data.
-            ),
+            nutrition=nutrition,
             source_api="mealdb",
             original_data=data
         )
+
+    def _normalize_steps(self, instructions_text: str) -> List[str]:
+        if not instructions_text:
+            return []
+        steps = [s.strip() for s in instructions_text.split("\r\n") if s.strip()]
+        if not steps:
+            steps = [s.strip() for s in instructions_text.split("\n") if s.strip()]
+        cleaned = []
+        for step in steps:
+            cleaned_step = re.sub(r"^step\s*\d+[:.\s-]*", "", step.strip(), flags=re.IGNORECASE)
+            cleaned_step = cleaned_step.strip()
+            if not cleaned_step and re.match(r"^step\s*\d+\b", step.strip(), flags=re.IGNORECASE):
+                continue
+            cleaned.append(cleaned_step or step.strip())
+        return cleaned
