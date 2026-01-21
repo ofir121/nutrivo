@@ -6,8 +6,6 @@ It combines deterministic parsing/scoring with optional LLM enhancements for amb
 ## Demo / Screenshots
 Live app: https://nutrivo-s873.onrender.com/
 
-<img src="app/static/assets/nutrivo_logo.png" alt="Nutrivo logo" width="220">
-
 <img src="app/static/assets/home_screenshot.png" alt="Home screen" width="900">
 
 <table>
