@@ -4,8 +4,9 @@ Nutrivo is a FastAPI + Streamlit app that turns natural-language meal planning r
 It combines deterministic parsing/scoring with optional LLM enhancements for ambiguous requests and tie-breaking.
 
 ## Demo / Screenshots
+Live app: https://nutrivo-s873.onrender.com/
 
-![Nutrivo logo](app/static/assets/nutrivo_logo.png)
+<img src="app/static/assets/nutrivo_logo.png" alt="Nutrivo logo" width="220">
 
 ## Features
 - Natural-language meal planning via `POST /api/generate-meal-plan`.

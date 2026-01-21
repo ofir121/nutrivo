@@ -57,6 +57,17 @@ Environment setup:
 
     st.markdown(
         """
+Ambiguity detection (used to decide whether to call the LLM):
+- **Heuristic only (no numeric score).**
+- A query is **ambiguous** if:
+  - It has **no concrete constraints** (no diets, exclusions, calories, or preferences) and duration is the **default 3 days**, or
+  - It contains **vague terms** like `healthy` or `next week` **and** lacks specific constraints.
+- Implemented in `_is_ambiguous(...)` in `app/services/parser_service.py`.
+"""
+    )
+
+    st.markdown(
+        """
 Architecture at a glance:
 ```
 [Streamlit UI] -> [FastAPI /api/generate-meal-plan]
@@ -110,6 +121,89 @@ Architecture at a glance:
 - **Deterministic vs non-deterministic:**
   - Parsing rules, scoring, and plan assembly are deterministic.
   - LLM enhancement and reranking are non-deterministic by nature.
+"""
+    )
+
+    st.divider()
+    st.subheader("🧮 Heuristics & Algorithms")
+    st.markdown(
+        """
+Query parsing heuristics (`app/services/parser_service.py`):
+- **Duration:** "week/next week" -> 7 days, `N-day` -> `max(N, 1)`, default 3.
+- **Meals per day:** default 3; if "snack" appears, add 1.
+- **Diets:** keyword match against `DIET_DEFINITIONS` (supports hyphen/space variants).
+- **Exclusions:** parses "no/without/exclude X" lists and `X-free`; normalizes via `INGREDIENT_SYNONYMS`.
+- **Preferences:** detects high/low macros, quick/fast, budget-friendly, healthy, and "under N minutes".
+- **Quick threshold:** `under-N-minutes` wins; otherwise "quick" -> 20 minutes.
+- **Ambiguity detection:** heuristic gates LLM enhancement (see above).
+"""
+    )
+
+    st.markdown(
+        """
+Conflict resolution (`app/services/conflict_resolver.py`, `app/core/rules.py`):
+- **Duration cap:** requests over 7 days return a 400 error.
+- **Incompatible diets:** any pair in `INCOMPATIBLE_DIETS` triggers 409.
+"""
+    )
+
+    st.markdown(
+        """
+Recipe retrieval + filtering:
+- **Local source (`app/services/sources/local.py`):**
+  - Exclusions check title + ingredient text (with synonym normalization).
+  - Diet match: normalized tag match + simple hierarchy (vegan ⇒ vegetarian, keto ⇒ ketogenic).
+  - Diet rule enforcement: reject forbidden ingredients/tags unless allowed exceptions apply.
+  - Prep time: batch LLM estimate when enabled; fallback to heuristic estimator; default 30 mins if missing.
+- **MealDB source (`app/services/sources/mealdb.py`):**
+  - Fetch strategy: category mapping for known meal types, then search fallback.
+  - Diet bootstrapping: if vegan/vegetarian requested, fetch those categories too.
+  - Final fallback: generic searches ("a", then "b") to fill variety; hard cap of 10 recipes.
+  - Detail fetch limited to 3 items per category list; dedup by id.
+  - Best-effort diet + exclusion filtering using tags/title/ingredients.
+  - Nutrition: USDA when available; otherwise heuristic macro estimates.
+"""
+    )
+
+    st.markdown(
+        """
+Time estimation heuristic (`app/utils/time_estimator.py`):
+- **Prep time:** base 5 mins + ingredient count penalty + step count penalty.
+- **Cook time:** sum explicit time ranges if present; otherwise keyword buckets (slow-cook > bake > boil > saute).
+- **Wait time:** adds for "overnight"/marinate/rest/proof unless explicit times exist.
+- **Clamp:** result is between 5 and 180 minutes.
+"""
+    )
+
+    st.markdown(
+        """
+Deterministic scoring (`app/services/scoring.py`):
+- **Keyword preference boost:** +1 for soft preference matches in title/ingredients/tags.
+- **Macro alignment:** high-protein adds (capped), low-carb/low-fat subtract (capped).
+- **Low-sodium:** penalize recipes with salty keywords.
+- **Quick:** penalize over-threshold prep times.
+- **Budget-friendly:** small boost for fewer ingredients.
+- **Diversity penalties:** ingredient token overlap vs previous day and dish type repetition.
+"""
+    )
+
+    st.markdown(
+        """
+Planner selection (`app/services/planner.py`):
+- **Greedy per-meal selection** using deterministic scores.
+- **Macro balance penalty:** penalizes ratios outside protein 20–45%, carbs 25–60%, fat 15–40%.
+- **Stable tie-break:** scores sorted by score, then recipe id.
+- **Fallbacks:** if unique pool is exhausted, reuse candidates (tracked in `defaults_applied`).
+- **Rerank (optional):** only top-K candidates are sent to the LLM; per-meal or batch modes.
+"""
+    )
+
+    st.markdown(
+        """
+USDA lookup (`app/services/usda_service.py`):
+- **Best match:** choose the first result by preferred data type order.
+- **Units:** converts Energy from kJ to kcal.
+- **Caching:** per-ingredient cache persisted in `data/usda_cache.json`.
 """
     )
 
